@@ -55,7 +55,7 @@ jobs:
           # Agregar soporte PiP a MainActivity
           content = content.replace(
               'android:name=".MainActivity"',
-              'android:name=".MainActivity"\n            android:supportsPictureInPicture="true"\n            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"'
+              'android:name=".MainActivity"\n            android:supportsPictureInPicture="true"'
           )
 
           with open(path, "w") as f:

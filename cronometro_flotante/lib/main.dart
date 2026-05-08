@@ -3,22 +3,18 @@ import 'package:google_fonts/google_fonts.dart';
 import 'main_screen.dart';
 import 'overlay_widget.dart';
 
-/// Punto de entrada principal de la app
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const CronometroApp());
 }
 
-/// Punto de entrada de la ventana flotante (separado del main)
 @pragma("vm:entry-point")
 void overlayMain() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(MaterialApp(
+  GoogleFonts.config.allowRuntimeFetching = false;
+  runApp(const MaterialApp(
     debugShowCheckedModeBanner: false,
-    theme: ThemeData(
-      textTheme: GoogleFonts.poppinsTextTheme(ThemeData.dark().textTheme),
-    ),
-    home: const OverlayWidget(),
+    home: OverlayWidget(),
   ));
 }
 

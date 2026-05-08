@@ -42,19 +42,23 @@ jobs:
           cp -rf mysrc/cronometro_flotante/lib/* cronometro_flotante/lib/
           cp mysrc/cronometro_flotante/pubspec.yaml cronometro_flotante/pubspec.yaml
 
-      - name: 🔒 Agregar permisos al AndroidManifest
+      - name: ⚙️ Configurar AndroidManifest para PiP
         working-directory: cronometro_flotante
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
-          sed -i 's|<uses-permission android:name="android.permission.INTERNET"/>|<uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>|' "$MANIFEST"
+          sed -i 's/android:name=".MainActivity"/android:name=".MainActivity"\n            android:supportsPictureInPicture="true"\n            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"/' "$MANIFEST"
+          echo "--- AndroidManifest actualizado ---"
+          grep -A3 "MainActivity" "$MANIFEST"
 
       - name: ⚙️ Configurar versiones Android SDK
         working-directory: cronometro_flotante
         run: |
           GRADLE="android/app/build.gradle"
-          sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 23/' "$GRADLE"
+          sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 26/' "$GRADLE"
           sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 34/' "$GRADLE"
           sed -i 's/targetSdkVersion flutter.targetSdkVersion/targetSdkVersion 34/' "$GRADLE"
+          echo "--- build.gradle actualizado ---"
+          grep -E "SdkVersion" "$GRADLE"
 
       - name: 📚 Instalar dependencias Flutter
         working-directory: cronometro_flotante
@@ -67,6 +71,9 @@ jobs:
       - name: 📤 Subir APK
         uses: actions/upload-artifact@v4
         with:
-          name: cronometro-flotante-v1.0
+          name: cronometro-flotante-v2.0
           path: cronometro_flotante/build/app/outputs/flutter-apk/app-debug.apk
           retention-days: 90
+
+      - name: ✅ Build completado
+        run: echo "APK listo — Ve a Actions → cronometro-flotante-v2.0 → Download"

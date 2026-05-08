@@ -109,20 +109,38 @@ class _MainScreenState extends State<MainScreen> {
     return Material(
       color: _bgColor.withOpacity(_opacity),
       child: Center(
-        child: Row(
+        child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.baseline,
-          textBaseline: TextBaseline.alphabetic,
           children: [
-            Text(main, style: _ts(30, letterSpacing: 2)),
-            Text(frac, style: _ts(18, letterSpacing: 1,
-                color: _textColor.withOpacity(0.6))),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Text(main, style: _ts(46, letterSpacing: 2)),
+                Text(frac, style: _ts(26, letterSpacing: 1,
+                    color: _textColor.withOpacity(0.6))),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _sw.isRunning
+                  ? '▶  EN CURSO'
+                  : (_sw.hasStarted ? '⏸  PAUSADO' : '○  LISTO'),
+              style: GoogleFonts.poppins(
+                color: _sw.isRunning
+                    ? const Color(0xFF1a73e8)
+                    : (_sw.hasStarted ? Colors.white54 : Colors.white30),
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 1.5,
+              ),
+            ),
           ],
         ),
       ),
     );
   }
-
   // ── Pantalla completa ─────────────────────────────────────────
   Widget _buildFull() {
     return Scaffold(

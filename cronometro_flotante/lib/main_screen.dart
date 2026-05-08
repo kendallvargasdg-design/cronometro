@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -21,6 +22,8 @@ class _MainScreenState extends State<MainScreen> {
   String _fontStyle  = 'regular';
   Color  _textColor  = Colors.white;
   bool   _showSettings = false;
+  bool   _inPiP = false;
+  Timer? _notifTimer;
 
   @override
   void initState() {
@@ -35,12 +38,14 @@ class _MainScreenState extends State<MainScreen> {
         if (action == 'play_pause') _sw.startPause();
         if (action == 'reset')      _sw.reset();
         if (action == 'lap')        _sw.addLap();
+        await _updateNotification();
       }
     });
   }
 
   @override
   void dispose() {
+    _notifTimer?.cancel();
     _sw.dispose();
     super.dispose();
   }
@@ -65,9 +70,35 @@ class _MainScreenState extends State<MainScreen> {
     await p.setInt('text_color',     _textColor.value);
   }
 
+  void _startNotifTimer() {
+    _notifTimer?.cancel();
+    _notifTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (_inPiP) _updateNotification();
+    });
+  }
+
+  Future<void> _updateNotification() async {
+    try {
+      await _channel.invokeMethod('updateNotification', {
+        'isRunning': _sw.isRunning,
+        'time': StopwatchController.format(_sw.elapsed),
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _dismissNotification() async {
+    _notifTimer?.cancel();
+    _notifTimer = null;
+    try {
+      await _channel.invokeMethod('dismissNotification');
+    } catch (_) {}
+  }
+
   Future<void> _enterPiP() async {
     try {
       await _channel.invokeMethod('enterPiP', {'isRunning': _sw.isRunning});
+      setState(() => _inPiP = true);
+      _startNotifTimer();
     } catch (_) {}
   }
 
@@ -96,11 +127,15 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     final w = MediaQuery.sizeOf(context).width;
-    if (w < 300) return _buildPiP();
+    final isPiP = w < 300;
+    if (_inPiP && !isPiP) {
+      _inPiP = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _dismissNotification());
+    }
+    if (isPiP) return _buildPiP();
     return _buildFull();
   }
 
-  // ── PiP compacto ──────────────────────────────────────────────
   Widget _buildPiP() {
     final full = StopwatchController.format(_sw.elapsed);
     final dot  = full.lastIndexOf('.');
@@ -108,47 +143,37 @@ class _MainScreenState extends State<MainScreen> {
     final frac = dot >= 0 ? full.substring(dot) : '';
     return Material(
       color: _bgColor.withOpacity(_opacity),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text(main, style: _ts(44, letterSpacing: 2)),
-              Text(frac, style: _ts(24, letterSpacing: 1,
-                  color: _textColor.withOpacity(0.6))),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _PipBtn(
-                icon: _sw.isRunning ? Icons.pause : Icons.play_arrow,
-                color: const Color(0xFF1a73e8),
-                onTap: _sw.startPause,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Text(main, style: _ts(46, letterSpacing: 2)),
+                Text(frac, style: _ts(26, letterSpacing: 1,
+                    color: _textColor.withOpacity(0.6))),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _sw.isRunning ? '▶  EN CURSO'
+                  : (_sw.hasStarted ? '⏸  PAUSADO' : '○  LISTO'),
+              style: GoogleFonts.poppins(
+                color: _sw.isRunning
+                    ? const Color(0xFF1a73e8) : Colors.white38,
+                fontSize: 10, fontWeight: FontWeight.w600,
+                letterSpacing: 1.5,
               ),
-              const SizedBox(width: 14),
-              _PipBtn(
-                icon: Icons.loop,
-                color: const Color(0xFFfbbc04),
-                onTap: _sw.hasStarted ? _sw.addLap : null,
-              ),
-              const SizedBox(width: 14),
-              _PipBtn(
-                icon: Icons.restart_alt,
-                color: const Color(0xFFea4335),
-                onTap: _sw.hasStarted ? _sw.reset : null,
-              ),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
-  // ── Pantalla completa ─────────────────────────────────────────
+
   Widget _buildFull() {
     return Scaffold(
       backgroundColor: const Color(0xFF0d0d1a),
@@ -208,12 +233,11 @@ class _MainScreenState extends State<MainScreen> {
                 : Colors.white.withOpacity(0.05),
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: _showSettings
-                ? const Color(0xFF1a73e8).withOpacity(0.5)
-                : Colors.white12),
+                ? const Color(0xFF1a73e8).withOpacity(0.5) : Colors.white12),
           ),
           child: Icon(Icons.tune,
-              color: _showSettings ? const Color(0xFF1a73e8) : Colors.white54,
-              size: 20),
+              color: _showSettings
+                  ? const Color(0xFF1a73e8) : Colors.white54, size: 20),
         ),
       ),
     ]);
@@ -251,19 +275,16 @@ class _MainScreenState extends State<MainScreen> {
     return Row(children: [
       Expanded(flex: 5, child: _ActionBtn(
         label: _sw.isRunning ? '⏸  PAUSAR' : '▶  INICIAR',
-        color: const Color(0xFF1a73e8),
-        onTap: _sw.startPause,
+        color: const Color(0xFF1a73e8), onTap: _sw.startPause,
       )),
       const SizedBox(width: 8),
       Expanded(flex: 3, child: _ActionBtn(
-        label: 'LAP',
-        color: const Color(0xFFfbbc04),
+        label: 'LAP', color: const Color(0xFFfbbc04),
         onTap: _sw.hasStarted ? _sw.addLap : null,
       )),
       const SizedBox(width: 8),
       Expanded(flex: 3, child: _ActionBtn(
-        label: '↺  RESET',
-        color: const Color(0xFFea4335),
+        label: '↺  RESET', color: const Color(0xFFea4335),
         onTap: _sw.hasStarted ? _sw.reset : null,
       )),
     ]);
@@ -295,9 +316,8 @@ class _MainScreenState extends State<MainScreen> {
                   fontWeight: FontWeight.w700)),
               const Spacer(),
               Text(StopwatchController.format(lap.partial),
-                  style: GoogleFonts.poppins(
-                      color: Colors.white, fontSize: 13,
-                      fontWeight: FontWeight.w700)),
+                  style: GoogleFonts.poppins(color: Colors.white,
+                      fontSize: 13, fontWeight: FontWeight.w700)),
               const SizedBox(width: 12),
               Text(StopwatchController.format(lap.cumulative),
                   style: GoogleFonts.poppins(
@@ -429,20 +449,13 @@ class _MainScreenState extends State<MainScreen> {
       )),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context),
-            child: Text('Cancelar', style: GoogleFonts.poppins(
-                color: Colors.white54))),
+            child: Text('Cancelar', style: GoogleFonts.poppins(color: Colors.white54))),
         ElevatedButton(
           style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF1a73e8),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10))),
-          onPressed: () {
-            setState(() => _bgColor = temp);
-            _savePrefs();
-            Navigator.pop(context);
-          },
-          child: Text('Aplicar', style: GoogleFonts.poppins(
-              color: Colors.white)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+          onPressed: () { setState(() => _bgColor = temp); _savePrefs(); Navigator.pop(context); },
+          child: Text('Aplicar', style: GoogleFonts.poppins(color: Colors.white)),
         ),
       ],
     ));
@@ -458,26 +471,18 @@ class _MainScreenState extends State<MainScreen> {
       content: SingleChildScrollView(child: ColorPicker(
         pickerColor: _textColor,
         onColorChanged: (c) => temp = c,
-        enableAlpha: false,
-        labelTypes: const [],
+        enableAlpha: false, labelTypes: const [],
         pickerAreaHeightPercent: 0.7,
       )),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context),
-            child: Text('Cancelar', style: GoogleFonts.poppins(
-                color: Colors.white54))),
+            child: Text('Cancelar', style: GoogleFonts.poppins(color: Colors.white54))),
         ElevatedButton(
           style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF1a73e8),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10))),
-          onPressed: () {
-            setState(() => _textColor = temp);
-            _savePrefs();
-            Navigator.pop(context);
-          },
-          child: Text('Aplicar', style: GoogleFonts.poppins(
-              color: Colors.white)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+          onPressed: () { setState(() => _textColor = temp); _savePrefs(); Navigator.pop(context); },
+          child: Text('Aplicar', style: GoogleFonts.poppins(color: Colors.white)),
         ),
       ],
     ));
@@ -529,13 +534,11 @@ class _ActionBtn extends StatelessWidget {
         decoration: BoxDecoration(
           color: enabled ? color.withOpacity(0.18) : Colors.white.withOpacity(0.04),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-              color: enabled ? color.withOpacity(0.55) : Colors.white12),
+          border: Border.all(color: enabled ? color.withOpacity(0.55) : Colors.white12),
         ),
         child: Text(label, style: GoogleFonts.poppins(
             color: enabled ? color : Colors.white24,
-            fontSize: 12, fontWeight: FontWeight.w700,
-            letterSpacing: 0.3)),
+            fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 0.3)),
       ),
     );
   }
@@ -553,31 +556,8 @@ class _Chip extends StatelessWidget {
           ? const Color(0xFF1a73e8).withOpacity(0.18)
           : Colors.white.withOpacity(0.06),
       borderRadius: BorderRadius.circular(8),
-      border: Border.all(
-          color: selected ? const Color(0xFF1a73e8) : Colors.white12),
+      border: Border.all(color: selected ? const Color(0xFF1a73e8) : Colors.white12),
     ),
     child: child,
   );
 }
-class _PipBtn extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  final VoidCallback? onTap;
-  const _PipBtn({required this.icon, required this.color, this.onTap});
-  @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: Container(
-      width: 42, height: 42,
-      decoration: BoxDecoration(
-        color: onTap != null ? color.withOpacity(0.25) : Colors.white.withOpacity(0.04),
-        shape: BoxShape.circle,
-        border: Border.all(
-            color: onTap != null ? color.withOpacity(0.7) : Colors.white12,
-            width: 1.5),
-      ),
-      child: Icon(icon,
-          color: onTap != null ? color : Colors.white24, size: 22),
-    ),
-  );
-}  

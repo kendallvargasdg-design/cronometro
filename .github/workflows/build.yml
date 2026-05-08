@@ -121,7 +121,7 @@ jobs:
                   if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                       val channel = NotificationChannel(
                           NOTIF_CHANNEL_ID, "Cronómetro",
-                          NotificationManager.IMPORTANCE_LOW
+                          NotificationManager.IMPORTANCE_DEFAULT
                       ).apply {
                           description = "Controles del cronómetro flotante"
                           setShowBadge(false)

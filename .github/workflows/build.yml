@@ -54,20 +54,24 @@ jobs:
               'android:name=".MainActivity"',
               'android:name=".MainActivity"\n            android:supportsPictureInPicture="true"'
           )
-          if 'POST_NOTIFICATIONS' not in content:
-              content = content.replace(
-                  '</manifest>',
-                  '    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>\n</manifest>'
-              )
-          if 'FOREGROUND_SERVICE' not in content:
-              content = content.replace(
-                  '</manifest>',
-                  '    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>\n</manifest>'
-              )
+          perms = [
+              'android.permission.POST_NOTIFICATIONS',
+              'android.permission.FOREGROUND_SERVICE',
+              'android.permission.FOREGROUND_SERVICE_DATA_SYNC',
+          ]
+          for p in perms:
+              if p not in content:
+                  content = content.replace(
+                      '</manifest>',
+                      f'    <uses-permission android:name="{p}"/>\n</manifest>'
+                  )
           if 'CronometroService' not in content:
               content = content.replace(
                   '</application>',
-                  '        <service android:name=".CronometroService" android:exported="false"/>\n    </application>'
+                  '        <service android:name=".CronometroService"\n'
+                  '            android:exported="false"\n'
+                  '            android:foregroundServiceType="dataSync"/>\n'
+                  '    </application>'
               )
           with open(path, "w") as f:
               f.write(content)
@@ -96,6 +100,7 @@ jobs:
           import android.app.PendingIntent
           import android.app.Service
           import android.content.Intent
+          import android.content.pm.ServiceInfo
           import android.os.Build
           import android.os.IBinder
           import androidx.core.app.NotificationCompat
@@ -123,7 +128,13 @@ jobs:
                       ACTION_SHOW -> {
                           val isRunning = intent.getBooleanExtra(EXTRA_IS_RUNNING, false)
                           val time = intent.getStringExtra(EXTRA_TIME) ?: "00:00.00"
-                          startForeground(NOTIF_ID, buildNotification(isRunning, time))
+                          val notif = buildNotification(isRunning, time)
+                          if (Build.VERSION.SDK_INT >= 34) {
+                              startForeground(NOTIF_ID, notif,
+                                  ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+                          } else {
+                              startForeground(NOTIF_ID, notif)
+                          }
                       }
                       ACTION_STOP -> {
                           if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
@@ -229,10 +240,10 @@ jobs:
                       when (call.method) {
                           "enterPiP" -> {
                               val isRunning = call.argument<Boolean>("isRunning") ?: false
+                              startCronometroService(isRunning, "00:00.00")
                               if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                                   enterPiPMode(isRunning)
                               }
-                              startCronometroService(isRunning, "00:00.00")
                               result.success(null)
                           }
                           "updateNotification" -> {
@@ -308,7 +319,10 @@ jobs:
                               Context.RECEIVER_NOT_EXPORTED
                           )
                       } else {
-                          registerReceiver(pipReceiver, IntentFilter(CronometroService.ACTION_PIP))
+                          registerReceiver(
+                              pipReceiver,
+                              IntentFilter(CronometroService.ACTION_PIP)
+                          )
                       }
                       receiverRegistered = true
                   }
@@ -336,6 +350,6 @@ jobs:
       - name: 📤 Subir APK
         uses: actions/upload-artifact@v4
         with:
-          name: cronometro-flotante-v4.0
+          name: cronometro-flotante-v4.1
           path: cronometro_flotante/build/app/outputs/flutter-apk/app-debug.apk
           retention-days: 90

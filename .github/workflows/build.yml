@@ -43,172 +43,7 @@ jobs:
           cp mysrc/cronometro_flotante/pubspec.yaml cronometro_flotante/pubspec.yaml
           rm -f cronometro_flotante/lib/overlay_widget.dart
 
-      - name: 📝 Crear MainActivity.kt con PiP nativo
-        working-directory: cronometro_flotante
-        run: |
-          mkdir -p android/app/src/main/kotlin/com/cronometro/cronometro_flotante
-          cat > android/app/src/main/kotlin/com/cronometro/cronometro_flotante/MainActivity.kt << 'KOTLIN_EOF'
-          package com.cronometro.cronometro_flotante
-
-          import android.app.NotificationChannel
-          import android.app.NotificationManager
-          import android.app.PendingIntent
-          import android.app.PictureInPictureParams
-          import android.app.RemoteAction
-          import android.content.BroadcastReceiver
-          import android.content.Context
-          import android.content.Intent
-          import android.content.IntentFilter
-          import android.graphics.drawable.Icon
-          import android.os.Build
-          import android.util.Rational
-          import androidx.core.app.NotificationCompat
-          import androidx.core.app.NotificationManagerCompat
-          import io.flutter.embedding.android.FlutterActivity
-          import io.flutter.embedding.engine.FlutterEngine
-          import io.flutter.plugin.common.MethodChannel
-
-          class MainActivity : FlutterActivity() {
-              private val CHANNEL = "cronometro/pip"
-              private val ACTION_PIP = "com.cronometro.pip.action"
-              private val EXTRA_CONTROL = "control"
-              private val NOTIF_CHANNEL_ID = "cronometro_channel"
-              private val NOTIF_ID = 1001
-              private var methodChannel: MethodChannel? = null
-              private var receiverRegistered = false
-
-              private val pipReceiver = object : BroadcastReceiver() {
-                  override fun onReceive(context: Context?, intent: Intent?) {
-                      val control = intent?.getStringExtra(EXTRA_CONTROL) ?: return
-                      methodChannel?.invokeMethod("pipAction", control)
-                  }
-              }
-
-              override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
-                  super.configureFlutterEngine(flutterEngine)
-                  createNotificationChannel()
-                  if (Build.VERSION.SDK_INT >= 33) {
-                      if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
-                          != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                          requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 100)
-                      }
-                  }
-                  methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
-                  methodChannel?.setMethodCallHandler { call, result ->
-                      when (call.method) {
-                          "enterPiP" -> {
-                              val isRunning = call.argument<Boolean>("isRunning") ?: false
-                              if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) enterPiPMode(isRunning)
-                              showNotification(isRunning, "00:00.00")
-                              result.success(null)
-                          }
-                          "updateNotification" -> {
-                              val isRunning = call.argument<Boolean>("isRunning") ?: false
-                              val time = call.argument<String>("time") ?: "00:00.00"
-                              showNotification(isRunning, time)
-                              result.success(null)
-                          }
-                          "dismissNotification" -> {
-                              dismissNotification()
-                              result.success(null)
-                          }
-                          else -> result.notImplemented()
-                      }
-                  }
-              }
-
-              private fun createNotificationChannel() {
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                      val channel = NotificationChannel(
-                          NOTIF_CHANNEL_ID, "Cronómetro",
-                          NotificationManager.IMPORTANCE_DEFAULT
-                      ).apply {
-                          description = "Controles del cronómetro flotante"
-                          setShowBadge(false)
-                      }
-                      getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
-                  }
-              }
-
-              private fun makeIntent(control: String, code: Int): PendingIntent {
-                  return PendingIntent.getBroadcast(
-                      this, code, Intent(ACTION_PIP).putExtra(EXTRA_CONTROL, control),
-                      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                  )
-              }
-
-              private fun showNotification(isRunning: Boolean, time: String) {
-                  val openIntent = PendingIntent.getActivity(
-                      this, 0, intent,
-                      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                  )
-                  val notif = NotificationCompat.Builder(this, NOTIF_CHANNEL_ID)
-                      .setSmallIcon(android.R.drawable.ic_media_play)
-                      .setContentTitle("⏱  Cronómetro Flotante")
-                      .setContentText(time)
-                      .setContentIntent(openIntent)
-                      .setOngoing(true)
-                      .setSilent(true)
-                      .addAction(
-                          if (isRunning) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
-                          if (isRunning) "Pausar" else "Iniciar",
-                          makeIntent("play_pause", 1)
-                      )
-                      .addAction(android.R.drawable.ic_menu_revert, "Reset", makeIntent("reset", 2))
-                      .addAction(android.R.drawable.ic_menu_add, "LAP", makeIntent("lap", 3))
-                      .build()
-                  NotificationManagerCompat.from(this).notify(NOTIF_ID, notif)
-              }
-
-              private fun dismissNotification() {
-                  NotificationManagerCompat.from(this).cancel(NOTIF_ID)
-              }
-
-              private fun enterPiPMode(isRunning: Boolean) {
-                  if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-                  val params = PictureInPictureParams.Builder()
-                      .setAspectRatio(Rational(16, 9))
-                      .setActions(listOf(
-                          RemoteAction(
-                              Icon.createWithResource(this,
-                                  if (isRunning) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play),
-                              if (isRunning) "Pausar" else "Iniciar",
-                              if (isRunning) "Pausar" else "Iniciar",
-                              makeIntent("play_pause", 1)
-                          ),
-                          RemoteAction(
-                              Icon.createWithResource(this, android.R.drawable.ic_menu_revert),
-                              "Reset", "Reset", makeIntent("reset", 2)
-                          )
-                      ))
-                      .build()
-                  enterPictureInPictureMode(params)
-              }
-
-              override fun onResume() {
-                  super.onResume()
-                  if (!receiverRegistered && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                      if (Build.VERSION.SDK_INT >= 33) {
-                          registerReceiver(pipReceiver, IntentFilter(ACTION_PIP), Context.RECEIVER_NOT_EXPORTED)
-                      } else {
-                          registerReceiver(pipReceiver, IntentFilter(ACTION_PIP))
-                      }
-                      receiverRegistered = true
-                  }
-              }
-
-              override fun onDestroy() {
-                  super.onDestroy()
-                  dismissNotification()
-                  if (receiverRegistered) {
-                      try { unregisterReceiver(pipReceiver) } catch (e: Exception) {}
-                      receiverRegistered = false
-                  }
-              }
-          }
-          KOTLIN_EOF
-
-      - name: ⚙️ Configurar AndroidManifest para PiP
+      - name: ⚙️ Configurar AndroidManifest
         working-directory: cronometro_flotante
         run: |
           python3 - <<'EOF'
@@ -224,9 +59,19 @@ jobs:
                   '</manifest>',
                   '    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>\n</manifest>'
               )
+          if 'FOREGROUND_SERVICE' not in content:
+              content = content.replace(
+                  '</manifest>',
+                  '    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>\n</manifest>'
+              )
+          if 'CronometroService' not in content:
+              content = content.replace(
+                  '</application>',
+                  '        <service android:name=".CronometroService" android:exported="false"/>\n    </application>'
+              )
           with open(path, "w") as f:
               f.write(content)
-          print("Manifest actualizado OK")
+          print("Manifest OK")
           EOF
 
       - name: ⚙️ Configurar versiones Android SDK
@@ -236,6 +81,249 @@ jobs:
           sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 26/' "$GRADLE"
           sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 34/' "$GRADLE"
           sed -i 's/targetSdkVersion flutter.targetSdkVersion/targetSdkVersion 34/' "$GRADLE"
+
+      - name: 📝 Crear archivos Kotlin nativos
+        working-directory: cronometro_flotante
+        run: |
+          mkdir -p android/app/src/main/kotlin/com/cronometro/cronometro_flotante
+
+          cat > android/app/src/main/kotlin/com/cronometro/cronometro_flotante/CronometroService.kt << 'KOTLIN_EOF'
+          package com.cronometro.cronometro_flotante
+
+          import android.app.Notification
+          import android.app.NotificationChannel
+          import android.app.NotificationManager
+          import android.app.PendingIntent
+          import android.app.Service
+          import android.content.Intent
+          import android.os.Build
+          import android.os.IBinder
+          import androidx.core.app.NotificationCompat
+
+          class CronometroService : Service() {
+              companion object {
+                  const val ACTION_SHOW = "SHOW"
+                  const val ACTION_STOP = "STOP"
+                  const val EXTRA_IS_RUNNING = "isRunning"
+                  const val EXTRA_TIME = "time"
+                  const val NOTIF_ID = 1001
+                  const val NOTIF_CHANNEL_ID = "cronometro_channel"
+                  const val ACTION_PIP = "com.cronometro.pip.action"
+              }
+
+              override fun onBind(intent: Intent?): IBinder? = null
+
+              override fun onCreate() {
+                  super.onCreate()
+                  createChannel()
+              }
+
+              override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+                  when (intent?.action) {
+                      ACTION_SHOW -> {
+                          val isRunning = intent.getBooleanExtra(EXTRA_IS_RUNNING, false)
+                          val time = intent.getStringExtra(EXTRA_TIME) ?: "00:00.00"
+                          startForeground(NOTIF_ID, buildNotification(isRunning, time))
+                      }
+                      ACTION_STOP -> {
+                          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                              stopForeground(STOP_FOREGROUND_REMOVE)
+                          } else {
+                              @Suppress("DEPRECATION")
+                              stopForeground(true)
+                          }
+                          stopSelf()
+                      }
+                  }
+                  return START_NOT_STICKY
+              }
+
+              private fun createChannel() {
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                      val channel = NotificationChannel(
+                          NOTIF_CHANNEL_ID, "Cronómetro",
+                          NotificationManager.IMPORTANCE_DEFAULT
+                      ).apply {
+                          description = "Controles del cronómetro flotante"
+                          setShowBadge(false)
+                      }
+                      getSystemService(NotificationManager::class.java)
+                          .createNotificationChannel(channel)
+                  }
+              }
+
+              private fun pip(control: String, code: Int): PendingIntent =
+                  PendingIntent.getBroadcast(
+                      this, code,
+                      Intent(ACTION_PIP).putExtra("control", control),
+                      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                  )
+
+              private fun buildNotification(isRunning: Boolean, time: String): Notification {
+                  val openIntent = PendingIntent.getActivity(
+                      this, 0,
+                      packageManager.getLaunchIntentForPackage(packageName),
+                      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                  )
+                  return NotificationCompat.Builder(this, NOTIF_CHANNEL_ID)
+                      .setSmallIcon(android.R.drawable.ic_media_play)
+                      .setContentTitle("⏱  Cronómetro Flotante")
+                      .setContentText(time)
+                      .setContentIntent(openIntent)
+                      .setOngoing(true)
+                      .setSilent(true)
+                      .addAction(
+                          if (isRunning) android.R.drawable.ic_media_pause
+                          else android.R.drawable.ic_media_play,
+                          if (isRunning) "Pausar" else "Iniciar",
+                          pip("play_pause", 1)
+                      )
+                      .addAction(android.R.drawable.ic_menu_revert, "Reset", pip("reset", 2))
+                      .addAction(android.R.drawable.ic_menu_add, "LAP", pip("lap", 3))
+                      .build()
+              }
+          }
+          KOTLIN_EOF
+
+          cat > android/app/src/main/kotlin/com/cronometro/cronometro_flotante/MainActivity.kt << 'KOTLIN_EOF'
+          package com.cronometro.cronometro_flotante
+
+          import android.app.PendingIntent
+          import android.app.PictureInPictureParams
+          import android.app.RemoteAction
+          import android.content.BroadcastReceiver
+          import android.content.Context
+          import android.content.Intent
+          import android.content.IntentFilter
+          import android.graphics.drawable.Icon
+          import android.os.Build
+          import android.util.Rational
+          import io.flutter.embedding.android.FlutterActivity
+          import io.flutter.embedding.engine.FlutterEngine
+          import io.flutter.plugin.common.MethodChannel
+
+          class MainActivity : FlutterActivity() {
+              private val CHANNEL = "cronometro/pip"
+              private var methodChannel: MethodChannel? = null
+              private var receiverRegistered = false
+
+              private val pipReceiver = object : BroadcastReceiver() {
+                  override fun onReceive(context: Context?, intent: Intent?) {
+                      val control = intent?.getStringExtra("control") ?: return
+                      methodChannel?.invokeMethod("pipAction", control)
+                  }
+              }
+
+              override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+                  super.configureFlutterEngine(flutterEngine)
+                  if (Build.VERSION.SDK_INT >= 33) {
+                      if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
+                          != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                          requestPermissions(
+                              arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 100)
+                      }
+                  }
+                  methodChannel = MethodChannel(
+                      flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
+                  methodChannel?.setMethodCallHandler { call, result ->
+                      when (call.method) {
+                          "enterPiP" -> {
+                              val isRunning = call.argument<Boolean>("isRunning") ?: false
+                              if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                  enterPiPMode(isRunning)
+                              }
+                              startCronometroService(isRunning, "00:00.00")
+                              result.success(null)
+                          }
+                          "updateNotification" -> {
+                              val isRunning = call.argument<Boolean>("isRunning") ?: false
+                              val time = call.argument<String>("time") ?: "00:00.00"
+                              startCronometroService(isRunning, time)
+                              result.success(null)
+                          }
+                          "dismissNotification" -> {
+                              stopCronometroService()
+                              result.success(null)
+                          }
+                          else -> result.notImplemented()
+                      }
+                  }
+              }
+
+              private fun startCronometroService(isRunning: Boolean, time: String) {
+                  val intent = Intent(this, CronometroService::class.java).apply {
+                      action = CronometroService.ACTION_SHOW
+                      putExtra(CronometroService.EXTRA_IS_RUNNING, isRunning)
+                      putExtra(CronometroService.EXTRA_TIME, time)
+                  }
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                      startForegroundService(intent)
+                  } else {
+                      startService(intent)
+                  }
+              }
+
+              private fun stopCronometroService() {
+                  startService(Intent(this, CronometroService::class.java).apply {
+                      action = CronometroService.ACTION_STOP
+                  })
+              }
+
+              private fun pip(control: String, code: Int): PendingIntent =
+                  PendingIntent.getBroadcast(
+                      this, code,
+                      Intent(CronometroService.ACTION_PIP).putExtra("control", control),
+                      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                  )
+
+              private fun enterPiPMode(isRunning: Boolean) {
+                  if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+                  val params = PictureInPictureParams.Builder()
+                      .setAspectRatio(Rational(16, 9))
+                      .setActions(listOf(
+                          RemoteAction(
+                              Icon.createWithResource(this,
+                                  if (isRunning) android.R.drawable.ic_media_pause
+                                  else android.R.drawable.ic_media_play),
+                              if (isRunning) "Pausar" else "Iniciar",
+                              if (isRunning) "Pausar" else "Iniciar",
+                              pip("play_pause", 1)
+                          ),
+                          RemoteAction(
+                              Icon.createWithResource(this, android.R.drawable.ic_menu_revert),
+                              "Reset", "Reset", pip("reset", 2)
+                          )
+                      ))
+                      .build()
+                  enterPictureInPictureMode(params)
+              }
+
+              override fun onResume() {
+                  super.onResume()
+                  if (!receiverRegistered && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                      if (Build.VERSION.SDK_INT >= 33) {
+                          registerReceiver(
+                              pipReceiver,
+                              IntentFilter(CronometroService.ACTION_PIP),
+                              Context.RECEIVER_NOT_EXPORTED
+                          )
+                      } else {
+                          registerReceiver(pipReceiver, IntentFilter(CronometroService.ACTION_PIP))
+                      }
+                      receiverRegistered = true
+                  }
+              }
+
+              override fun onDestroy() {
+                  super.onDestroy()
+                  stopCronometroService()
+                  if (receiverRegistered) {
+                      try { unregisterReceiver(pipReceiver) } catch (e: Exception) {}
+                      receiverRegistered = false
+                  }
+              }
+          }
+          KOTLIN_EOF
 
       - name: 📚 Instalar dependencias Flutter
         working-directory: cronometro_flotante
@@ -248,6 +336,6 @@ jobs:
       - name: 📤 Subir APK
         uses: actions/upload-artifact@v4
         with:
-          name: cronometro-flotante-v3.0
+          name: cronometro-flotante-v4.0
           path: cronometro_flotante/build/app/outputs/flutter-apk/app-debug.apk
           retention-days: 90

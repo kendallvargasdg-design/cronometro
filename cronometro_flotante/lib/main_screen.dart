@@ -108,36 +108,43 @@ class _MainScreenState extends State<MainScreen> {
     final frac = dot >= 0 ? full.substring(dot) : '';
     return Material(
       color: _bgColor.withOpacity(_opacity),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                Text(main, style: _ts(46, letterSpacing: 2)),
-                Text(frac, style: _ts(26, letterSpacing: 1,
-                    color: _textColor.withOpacity(0.6))),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _sw.isRunning
-                  ? '▶  EN CURSO'
-                  : (_sw.hasStarted ? '⏸  PAUSADO' : '○  LISTO'),
-              style: GoogleFonts.poppins(
-                color: _sw.isRunning
-                    ? const Color(0xFF1a73e8)
-                    : (_sw.hasStarted ? Colors.white54 : Colors.white30),
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 1.5,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(main, style: _ts(44, letterSpacing: 2)),
+              Text(frac, style: _ts(24, letterSpacing: 1,
+                  color: _textColor.withOpacity(0.6))),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _PipBtn(
+                icon: _sw.isRunning ? Icons.pause : Icons.play_arrow,
+                color: const Color(0xFF1a73e8),
+                onTap: _sw.startPause,
               ),
-            ),
-          ],
-        ),
+              const SizedBox(width: 14),
+              _PipBtn(
+                icon: Icons.loop,
+                color: const Color(0xFFfbbc04),
+                onTap: _sw.hasStarted ? _sw.addLap : null,
+              ),
+              const SizedBox(width: 14),
+              _PipBtn(
+                icon: Icons.restart_alt,
+                color: const Color(0xFFea4335),
+                onTap: _sw.hasStarted ? _sw.reset : null,
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -552,3 +559,25 @@ class _Chip extends StatelessWidget {
     child: child,
   );
 }
+class _PipBtn extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final VoidCallback? onTap;
+  const _PipBtn({required this.icon, required this.color, this.onTap});
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: onTap,
+    child: Container(
+      width: 42, height: 42,
+      decoration: BoxDecoration(
+        color: onTap != null ? color.withOpacity(0.25) : Colors.white.withOpacity(0.04),
+        shape: BoxShape.circle,
+        border: Border.all(
+            color: onTap != null ? color.withOpacity(0.7) : Colors.white12,
+            width: 1.5),
+      ),
+      child: Icon(icon,
+          color: onTap != null ? color : Colors.white24, size: 22),
+    ),
+  );
+}  

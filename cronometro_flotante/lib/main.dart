@@ -11,16 +11,27 @@ void main() {
 @pragma("vm:entry-point")
 void overlayMain() {
   WidgetsFlutterBinding.ensureInitialized();
-  GoogleFonts.config.allowRuntimeFetching = false;
   runApp(const MaterialApp(
     debugShowCheckedModeBanner: false,
-    home: OverlayWidget(),
+    home: Scaffold(
+      backgroundColor: Colors.red,
+      body: Center(
+        child: Text(
+          'OVERLAY\nACTIVO',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 32,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    ),
   ));
 }
 
 class CronometroApp extends StatelessWidget {
   const CronometroApp({super.key});
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(

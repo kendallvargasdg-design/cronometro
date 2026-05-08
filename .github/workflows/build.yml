@@ -50,6 +50,8 @@ jobs:
           cat > android/app/src/main/kotlin/com/cronometro/cronometro_flotante/MainActivity.kt << 'KOTLIN_EOF'
           package com.cronometro.cronometro_flotante
 
+          import android.app.NotificationChannel
+          import android.app.NotificationManager
           import android.app.PendingIntent
           import android.app.PictureInPictureParams
           import android.app.RemoteAction
@@ -60,6 +62,8 @@ jobs:
           import android.graphics.drawable.Icon
           import android.os.Build
           import android.util.Rational
+          import androidx.core.app.NotificationCompat
+          import androidx.core.app.NotificationManagerCompat
           import io.flutter.embedding.android.FlutterActivity
           import io.flutter.embedding.engine.FlutterEngine
           import io.flutter.plugin.common.MethodChannel
@@ -68,6 +72,8 @@ jobs:
               private val CHANNEL = "cronometro/pip"
               private val ACTION_PIP = "com.cronometro.pip.action"
               private val EXTRA_CONTROL = "control"
+              private val NOTIF_CHANNEL_ID = "cronometro_channel"
+              private val NOTIF_ID = 1001
               private var methodChannel: MethodChannel? = null
               private var receiverRegistered = false
 
@@ -80,48 +86,101 @@ jobs:
 
               override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
                   super.configureFlutterEngine(flutterEngine)
+                  createNotificationChannel()
+                  if (Build.VERSION.SDK_INT >= 33) {
+                      if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
+                          != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                          requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 100)
+                      }
+                  }
                   methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
                   methodChannel?.setMethodCallHandler { call, result ->
-                      if (call.method == "enterPiP") {
-                          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                      when (call.method) {
+                          "enterPiP" -> {
                               val isRunning = call.argument<Boolean>("isRunning") ?: false
-                              enterPiPWithActions(isRunning)
+                              if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) enterPiPMode(isRunning)
+                              showNotification(isRunning, "00:00.00")
+                              result.success(null)
                           }
-                          result.success(null)
-                      } else {
-                          result.notImplemented()
+                          "updateNotification" -> {
+                              val isRunning = call.argument<Boolean>("isRunning") ?: false
+                              val time = call.argument<String>("time") ?: "00:00.00"
+                              showNotification(isRunning, time)
+                              result.success(null)
+                          }
+                          "dismissNotification" -> {
+                              dismissNotification()
+                              result.success(null)
+                          }
+                          else -> result.notImplemented()
                       }
                   }
               }
 
-              private fun enterPiPWithActions(isRunning: Boolean) {
+              private fun createNotificationChannel() {
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                      val channel = NotificationChannel(
+                          NOTIF_CHANNEL_ID, "Cronómetro",
+                          NotificationManager.IMPORTANCE_LOW
+                      ).apply {
+                          description = "Controles del cronómetro flotante"
+                          setShowBadge(false)
+                      }
+                      getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+                  }
+              }
+
+              private fun makeIntent(control: String, code: Int): PendingIntent {
+                  return PendingIntent.getBroadcast(
+                      this, code, Intent(ACTION_PIP).putExtra(EXTRA_CONTROL, control),
+                      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                  )
+              }
+
+              private fun showNotification(isRunning: Boolean, time: String) {
+                  val openIntent = PendingIntent.getActivity(
+                      this, 0, intent,
+                      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                  )
+                  val notif = NotificationCompat.Builder(this, NOTIF_CHANNEL_ID)
+                      .setSmallIcon(android.R.drawable.ic_media_play)
+                      .setContentTitle("⏱  Cronómetro Flotante")
+                      .setContentText(time)
+                      .setContentIntent(openIntent)
+                      .setOngoing(true)
+                      .setSilent(true)
+                      .addAction(
+                          if (isRunning) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
+                          if (isRunning) "Pausar" else "Iniciar",
+                          makeIntent("play_pause", 1)
+                      )
+                      .addAction(android.R.drawable.ic_menu_revert, "Reset", makeIntent("reset", 2))
+                      .addAction(android.R.drawable.ic_menu_add, "LAP", makeIntent("lap", 3))
+                      .build()
+                  NotificationManagerCompat.from(this).notify(NOTIF_ID, notif)
+              }
+
+              private fun dismissNotification() {
+                  NotificationManagerCompat.from(this).cancel(NOTIF_ID)
+              }
+
+              private fun enterPiPMode(isRunning: Boolean) {
                   if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-                  val actions = mutableListOf<RemoteAction>()
-                  val playPauseIntent = PendingIntent.getBroadcast(
-                      this, 1,
-                      Intent(ACTION_PIP).putExtra(EXTRA_CONTROL, "play_pause"),
-                      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                  )
-                  actions.add(RemoteAction(
-                      Icon.createWithResource(this,
-                          if (isRunning) android.R.drawable.ic_media_pause
-                          else android.R.drawable.ic_media_play),
-                      if (isRunning) "Pausar" else "Iniciar",
-                      if (isRunning) "Pausar" else "Iniciar",
-                      playPauseIntent
-                  ))
-                  val resetIntent = PendingIntent.getBroadcast(
-                      this, 2,
-                      Intent(ACTION_PIP).putExtra(EXTRA_CONTROL, "reset"),
-                      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                  )
-                  actions.add(RemoteAction(
-                      Icon.createWithResource(this, android.R.drawable.ic_menu_revert),
-                      "Reset", "Reset", resetIntent
-                  ))
                   val params = PictureInPictureParams.Builder()
                       .setAspectRatio(Rational(16, 9))
-                      .setActions(actions)
+                      .setActions(listOf(
+                          RemoteAction(
+                              Icon.createWithResource(this,
+                                  if (isRunning) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play),
+                              if (isRunning) "Pausar" else "Iniciar",
+                              if (isRunning) "Pausar" else "Iniciar",
+                              makeIntent("play_pause", 1)
+                          ),
+                          RemoteAction(
+                              Icon.createWithResource(this, android.R.drawable.ic_menu_revert),
+                              "Reset", "Reset", makeIntent("reset", 2)
+                          )
+                      ))
                       .build()
                   enterPictureInPictureMode(params)
               }
@@ -140,6 +199,7 @@ jobs:
 
               override fun onDestroy() {
                   super.onDestroy()
+                  dismissNotification()
                   if (receiverRegistered) {
                       try { unregisterReceiver(pipReceiver) } catch (e: Exception) {}
                       receiverRegistered = false
@@ -159,6 +219,11 @@ jobs:
               'android:name=".MainActivity"',
               'android:name=".MainActivity"\n            android:supportsPictureInPicture="true"'
           )
+          if 'POST_NOTIFICATIONS' not in content:
+              content = content.replace(
+                  '</manifest>',
+                  '    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>\n</manifest>'
+              )
           with open(path, "w") as f:
               f.write(content)
           print("Manifest actualizado OK")

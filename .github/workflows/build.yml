@@ -39,16 +39,30 @@ jobs:
 
       - name: 📋 Copiar código fuente
         run: |
-          cp -rf mysrc/cronometro_flotante/lib/* cronometro_flotante/lib/
-          cp mysrc/cronometro_flotante/pubspec.yaml cronometro_flotante/pubspec.yaml
+          cp -rf mysrc/lib/* cronometro_flotante/lib/
+          cp mysrc/pubspec.yaml cronometro_flotante/pubspec.yaml
 
       - name: ⚙️ Configurar AndroidManifest para PiP
         working-directory: cronometro_flotante
         run: |
-          MANIFEST="android/app/src/main/AndroidManifest.xml"
-          sed -i 's/android:name=".MainActivity"/android:name=".MainActivity"\n            android:supportsPictureInPicture="true"\n            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"/' "$MANIFEST"
-          echo "--- AndroidManifest actualizado ---"
-          grep -A3 "MainActivity" "$MANIFEST"
+          python3 - <<'EOF'
+          import re
+
+          path = "android/app/src/main/AndroidManifest.xml"
+          with open(path, "r") as f:
+              content = f.read()
+
+          # Agregar soporte PiP a MainActivity
+          content = content.replace(
+              'android:name=".MainActivity"',
+              'android:name=".MainActivity"\n            android:supportsPictureInPicture="true"\n            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"'
+          )
+
+          with open(path, "w") as f:
+              f.write(content)
+
+          print("AndroidManifest actualizado correctamente")
+          EOF
 
       - name: ⚙️ Configurar versiones Android SDK
         working-directory: cronometro_flotante
@@ -76,4 +90,4 @@ jobs:
           retention-days: 90
 
       - name: ✅ Build completado
-        run: echo "APK listo — Ve a Actions → cronometro-flotante-v2.0 → Download"
+        run: echo "APK listo para descargar desde Actions → cronometro-flotante-v2.0"

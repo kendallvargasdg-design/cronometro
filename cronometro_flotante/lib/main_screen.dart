@@ -60,9 +60,7 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Future<void> _enterPiP() async {
-    await _floating.enable(
-      ImmediatePiP(aspectRatio: const Rational(16, 9)),
-    );
+    await _floating.enable();
   }
 
   TextStyle _ts(double size, {double? letterSpacing, Color? color}) {
@@ -81,13 +79,9 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<PiPStatus>(
-      stream: _floating.pipStatus,
-      builder: (context, snap) {
-        if (snap.data == PiPStatus.enabled) return _buildPiP();
-        return _buildFull();
-      },
-    );
+    final size = MediaQuery.sizeOf(context);
+    if (size.width < 300) return _buildPiP();
+    return _buildFull();
   }
 
   // ── Vista PiP (flotante compacta) ─────────────────────────

@@ -75,6 +75,14 @@ class StopwatchController extends ChangeNotifier {
     _lapStart = current;
     notifyListeners();
   }
+  
+  static String format(Duration d) {
+    final h = d.inHours;
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    final cs = (d.inMilliseconds.remainder(1000) ~/ 10).toString().padLeft(2, '0');
+    return h > 0 ? '$h:$m:$s.$cs' : '$m:$s.$cs';
+  }
 
   static String formatMain(Duration d) {
     final h = d.inHours;

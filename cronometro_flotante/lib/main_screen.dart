@@ -12,7 +12,7 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
+class _MainScreenState extends State<MainScreen> {
   static const _channel = MethodChannel('cronometro/pip');
 
   late final StopwatchController _sw;
@@ -47,23 +47,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     });
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && _inPiP) {
-      setState(() => _inPiP = false);
-      _dismissNotification();
-    }
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _notifTimer?.cancel();
-    _sw.dispose();
-    super.dispose();
-  }
-
-  Future<void> _loadPrefs() async {
+   Future<void> _loadPrefs() async {
     final p = await SharedPreferences.getInstance();
     if (!mounted) return;
     setState(() {

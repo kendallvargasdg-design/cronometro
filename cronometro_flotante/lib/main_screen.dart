@@ -17,16 +17,17 @@ class _MainScreenState extends State<MainScreen> {
   static const _ch = MethodChannel('cronometro/pip');
   late final StopwatchController _sw;
 
-  Color  _bg       = const Color(0xFF1a1a2e);
-  double _opacity  = 0.92;
-  String _family   = 'poppins';
-  String _style    = 'regular';
-  Color  _textCol  = Colors.white;
-  bool   _inPiP    = false;
-  int    _lapCount = 0;
-  bool   _running  = false;
+  Color  _bg           = const Color(0xFF1a1a2e);
+  double _opacity      = 0.92;
+  String _family       = 'poppins';
+  String _style        = 'regular';
+  Color  _textCol      = Colors.white;
+  bool   _inPiP        = false;
+  bool   _showSettings = false;
+  int    _lapCount     = 0;
+  bool   _running      = false;
 
-  // ── Lifecycle ───────────────────────────────────────────────
+  // ── Lifecycle ────────────────────────────────────────────────
   @override
   void initState() {
     super.initState();
@@ -45,7 +46,7 @@ class _MainScreenState extends State<MainScreen> {
 
   void _onChange() {
     final lc = _sw.laps.length != _lapCount;
-    final rc = _sw.isRunning   != _running;
+    final rc = _sw.isRunning != _running;
     if (lc || rc) {
       _lapCount = _sw.laps.length;
       _running  = _sw.isRunning;
@@ -54,7 +55,7 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  // ── Native ──────────────────────────────────────────────────
+  // ── Native ───────────────────────────────────────────────────
   Future<dynamic> _onNative(MethodCall call) async {
     if (call.method == 'pipExited') {
       if (mounted) setState(() => _inPiP = false);
@@ -70,7 +71,7 @@ class _MainScreenState extends State<MainScreen> {
     try { await _ch.invokeMethod('enterPiP', {'isRunning': _sw.isRunning}); }
     catch (_) {}
     await Future.delayed(const Duration(milliseconds: 600));
-    if (mounted) setState(() => _inPiP = true);
+    if (mounted) setState(() { _inPiP = true; _showSettings = false; });
   }
 
   Future<void> _updatePiP() async {
@@ -83,24 +84,24 @@ class _MainScreenState extends State<MainScreen> {
     final p = await SharedPreferences.getInstance();
     if (!mounted) return;
     setState(() {
-      _bg      = Color(p.getInt('bg')      ?? 0xFF1a1a2e);
-      _opacity = p.getDouble('op')         ?? 0.92;
-      _family  = p.getString('fam')        ?? 'poppins';
-      _style   = p.getString('sty')        ?? 'regular';
-      _textCol = Color(p.getInt('txt')     ?? 0xFFFFFFFF);
+      _bg      = Color(p.getInt('bg')    ?? 0xFF1a1a2e);
+      _opacity = p.getDouble('op')       ?? 0.92;
+      _family  = p.getString('fam')      ?? 'poppins';
+      _style   = p.getString('sty')      ?? 'regular';
+      _textCol = Color(p.getInt('txt')   ?? 0xFFFFFFFF);
     });
   }
 
   Future<void> _save() async {
     final p = await SharedPreferences.getInstance();
-    await p.setInt('bg',    _bg.value);
-    await p.setDouble('op', _opacity);
-    await p.setString('fam',_family);
-    await p.setString('sty',_style);
-    await p.setInt('txt',   _textCol.value);
+    await p.setInt('bg',     _bg.value);
+    await p.setDouble('op',  _opacity);
+    await p.setString('fam', _family);
+    await p.setString('sty', _style);
+    await p.setInt('txt',    _textCol.value);
   }
 
-  // ── Font ─────────────────────────────────────────────────────
+  // ── Font helper ──────────────────────────────────────────────
   TextStyle _font(double size, Color color, {double? ls}) {
     final w = _style == 'bold'
         ? FontWeight.w700
@@ -138,8 +139,7 @@ class _MainScreenState extends State<MainScreen> {
         backgroundColor: const Color(0xFF1e1e2e),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text('Color de fondo',
-            style: GoogleFonts.poppins(
-                color: Colors.white, fontWeight: FontWeight.w600)),
+            style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w600)),
         content: SingleChildScrollView(
           child: BlockPicker(
             pickerColor: _bg,
@@ -183,8 +183,7 @@ class _MainScreenState extends State<MainScreen> {
         backgroundColor: const Color(0xFF1e1e2e),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text('Color de texto',
-            style: GoogleFonts.poppins(
-                color: Colors.white, fontWeight: FontWeight.w600)),
+            style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w600)),
         content: SingleChildScrollView(
           child: ColorPicker(
             pickerColor: _textCol,
@@ -247,7 +246,7 @@ class _MainScreenState extends State<MainScreen> {
                       ],
                     ),
                   ),
-                  // Time
+                  // Time display
                   Center(
                     child: FittedBox(
                       fit: BoxFit.contain,
@@ -267,7 +266,7 @@ class _MainScreenState extends State<MainScreen> {
                       ),
                     ),
                   ),
-                  // Status
+                  // Status label
                   Positioned(
                     bottom: 7, left: 0, right: 0,
                     child: Text(
@@ -293,236 +292,217 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  // ── Settings sheet ───────────────────────────────────────────
-  void _openSettings() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (sheetCtx) {
-        return StatefulBuilder(
-          builder: (ctx, ss) {
-            // helper: row dentro del sheet
-            Widget row(String label, Widget trailing) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: Row(
+  // ── Settings panel (inline) ──────────────────────────────────
+  Widget _buildSettings() {
+    // local helpers live inside the stateful widget → setState() works directly
+    Widget settingRow(String label, Widget trailing) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          children: [
+            Text(label,
+                style: GoogleFonts.poppins(color: Colors.white70, fontSize: 13)),
+            const Spacer(),
+            trailing,
+          ],
+        ),
+      );
+    }
+
+    Widget chip(String key, String label, {bool isFamily = true}) {
+      final sel = isFamily ? _family == key : _style == key;
+      final c   = sel ? const Color(0xFF1a73e8) : Colors.white60;
+      TextStyle ts;
+      if (isFamily) {
+        switch (key) {
+          case 'montserrat':
+            ts = GoogleFonts.montserrat(
+                fontSize: 12, color: c, fontWeight: FontWeight.w600);
+            break;
+          case 'playfair':
+            ts = GoogleFonts.playfairDisplay(
+                fontSize: 12, color: c, fontWeight: FontWeight.w600);
+            break;
+          case 'cormorant':
+            ts = GoogleFonts.cormorantGaramond(
+                fontSize: 13, color: c, fontWeight: FontWeight.w600);
+            break;
+          default:
+            ts = GoogleFonts.poppins(
+                fontSize: 12, color: c, fontWeight: FontWeight.w600);
+        }
+      } else {
+        final fw = key == 'bold'
+            ? FontWeight.w700
+            : key == 'extrabold'
+                ? FontWeight.w800
+                : FontWeight.w400;
+        final fi = key == 'italic' ? FontStyle.italic : FontStyle.normal;
+        ts = GoogleFonts.poppins(
+            fontSize: 12, color: c, fontWeight: fw, fontStyle: fi);
+      }
+      return GestureDetector(
+        onTap: () {
+          setState(() {
+            if (isFamily) _family = key;
+            else _style = key;
+          });
+          _save();
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(
+            color: sel
+                ? const Color(0xFF1a73e8).withOpacity(0.18)
+                : Colors.white.withOpacity(0.06),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+                color: sel ? const Color(0xFF1a73e8) : Colors.white12),
+          ),
+          child: Text(label, style: ts),
+        ),
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFF13132a),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white10),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ── Live preview ──────────────────────────────────
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            decoration: BoxDecoration(
+              color: _bg.withOpacity(_opacity),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.white12),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('VISTA PREVIA',
+                    style: GoogleFonts.poppins(
+                        color: Colors.white38,
+                        fontSize: 8,
+                        letterSpacing: 2,
+                        decoration: TextDecoration.none)),
+                const SizedBox(height: 5),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
                   children: [
-                    Text(label,
-                        style: GoogleFonts.poppins(
-                            color: Colors.white70, fontSize: 13)),
-                    const Spacer(),
-                    trailing,
+                    Text('00:00', style: _font(34, _textCol, ls: 1)),
+                    Text('.00', style: _font(13, _textCol.withOpacity(0.45))),
                   ],
                 ),
-              );
-            }
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
 
-            // helper: chip
-            Widget chip(String key, String label,
-                {bool isFamily = true}) {
-              final sel = isFamily
-                  ? _family == key
-                  : _style == key;
-              final c = sel
-                  ? const Color(0xFF1a73e8)
-                  : Colors.white60;
-              TextStyle ts;
-              if (isFamily) {
-                switch (key) {
-                  case 'montserrat':
-                    ts = GoogleFonts.montserrat(
-                        fontSize: 12,
-                        color: c,
-                        fontWeight: FontWeight.w600);
-                    break;
-                  case 'playfair':
-                    ts = GoogleFonts.playfairDisplay(
-                        fontSize: 12,
-                        color: c,
-                        fontWeight: FontWeight.w600);
-                    break;
-                  case 'cormorant':
-                    ts = GoogleFonts.cormorantGaramond(
-                        fontSize: 13,
-                        color: c,
-                        fontWeight: FontWeight.w600);
-                    break;
-                  default:
-                    ts = GoogleFonts.poppins(
-                        fontSize: 12,
-                        color: c,
-                        fontWeight: FontWeight.w600);
-                }
-              } else {
-                final fw = key == 'bold'
-                    ? FontWeight.w700
-                    : key == 'extrabold'
-                        ? FontWeight.w800
-                        : FontWeight.w400;
-                final fi = key == 'italic'
-                    ? FontStyle.italic
-                    : FontStyle.normal;
-                ts = GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: c,
-                    fontWeight: fw,
-                    fontStyle: fi);
-              }
-              return GestureDetector(
-                onTap: () {
-                  setState(() {
-                    if (isFamily) _family = key;
-                    else _style = key;
-                  });
-                  ss(() {});
+          // ── Apariencia ────────────────────────────────────
+          Text('APARIENCIA',
+              style: GoogleFonts.poppins(
+                  color: Colors.white38,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.5)),
+          const SizedBox(height: 10),
+
+          settingRow(
+            'Fondo',
+            GestureDetector(
+              onTap: _pickBg,
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                        color: _bg,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white30))),
+                const SizedBox(width: 6),
+                Text('Cambiar',
+                    style: GoogleFonts.poppins(
+                        color: const Color(0xFF1a73e8), fontSize: 12)),
+              ]),
+            ),
+          ),
+
+          settingRow(
+            'Opacidad',
+            SizedBox(
+              width: 130,
+              child: Slider(
+                value: _opacity,
+                min: 0.3,
+                max: 1.0,
+                divisions: 7,
+                activeColor: const Color(0xFF1a73e8),
+                inactiveColor: Colors.white12,
+                onChanged: (v) {
+                  setState(() => _opacity = v);
                   _save();
                 },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: sel
-                        ? const Color(0xFF1a73e8).withOpacity(0.18)
-                        : Colors.white.withOpacity(0.06),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                        color: sel
-                            ? const Color(0xFF1a73e8)
-                            : Colors.white12),
-                  ),
-                  child: Text(label, style: ts),
-                ),
-              );
-            }
-
-            return Container(
-              decoration: const BoxDecoration(
-                color: Color(0xFF13132a),
-                borderRadius:
-                    BorderRadius.vertical(top: Radius.circular(24)),
               ),
-              padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Handle bar
-                    Center(
-                      child: Container(
-                        width: 40, height: 4,
-                        decoration: BoxDecoration(
-                            color: Colors.white24,
-                            borderRadius: BorderRadius.circular(2)),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
+            ),
+          ),
 
-                    Text('APARIENCIA',
-                        style: GoogleFonts.poppins(
-                            color: Colors.white38,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.5)),
-                    const SizedBox(height: 12),
+          settingRow(
+            'Color texto',
+            GestureDetector(
+              onTap: _pickText,
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                        color: _textCol,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white30))),
+                const SizedBox(width: 6),
+                Text('Cambiar',
+                    style: GoogleFonts.poppins(
+                        color: const Color(0xFF1a73e8), fontSize: 12)),
+              ]),
+            ),
+          ),
 
-                    row('Fondo',
-                        GestureDetector(
-                          onTap: () {
-                            Navigator.pop(sheetCtx);
-                            _pickBg();
-                          },
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                  width: 22, height: 22,
-                                  decoration: BoxDecoration(
-                                      color: _bg,
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                          color: Colors.white30))),
-                              const SizedBox(width: 6),
-                              Text('Cambiar',
-                                  style: GoogleFonts.poppins(
-                                      color: const Color(0xFF1a73e8),
-                                      fontSize: 12)),
-                            ],
-                          ),
-                        )),
+          const SizedBox(height: 16),
 
-                    row('Opacidad',
-                        SizedBox(
-                          width: 130,
-                          child: Slider(
-                            value: _opacity,
-                            min: 0.3, max: 1.0, divisions: 7,
-                            activeColor: const Color(0xFF1a73e8),
-                            inactiveColor: Colors.white12,
-                            onChanged: (v) {
-                              ss(() {});
-                              setState(() => _opacity = v);
-                              _save();
-                            },
-                          ),
-                        )),
+          // ── Tipografía ────────────────────────────────────
+          Text('TIPOGRAFÍA',
+              style: GoogleFonts.poppins(
+                  color: Colors.white38,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.5)),
+          const SizedBox(height: 10),
 
-                    row('Color texto',
-                        GestureDetector(
-                          onTap: () {
-                            Navigator.pop(sheetCtx);
-                            _pickText();
-                          },
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                  width: 22, height: 22,
-                                  decoration: BoxDecoration(
-                                      color: _textCol,
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                          color: Colors.white30))),
-                              const SizedBox(width: 6),
-                              Text('Cambiar',
-                                  style: GoogleFonts.poppins(
-                                      color: const Color(0xFF1a73e8),
-                                      fontSize: 12)),
-                            ],
-                          ),
-                        )),
-
-                    const SizedBox(height: 20),
-
-                    Text('TIPOGRAFÍA',
-                        style: GoogleFonts.poppins(
-                            color: Colors.white38,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.5)),
-                    const SizedBox(height: 12),
-
-                    Wrap(spacing: 8, runSpacing: 8, children: [
-                      chip('poppins',    'Poppins'),
-                      chip('montserrat', 'Montserrat'),
-                      chip('playfair',   'Playfair'),
-                      chip('cormorant',  'Cormorant'),
-                    ]),
-                    const SizedBox(height: 10),
-                    Wrap(spacing: 8, runSpacing: 8, children: [
-                      chip('regular',   'Regular',   isFamily: false),
-                      chip('bold',      'Bold',      isFamily: false),
-                      chip('extrabold', 'Extra Bold',isFamily: false),
-                      chip('italic',    'Cursiva',   isFamily: false),
-                    ]),
-                    const SizedBox(height: 8),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            chip('poppins',    'Poppins'),
+            chip('montserrat', 'Montserrat'),
+            chip('playfair',   'Playfair'),
+            chip('cormorant',  'Cormorant'),
+          ]),
+          const SizedBox(height: 10),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            chip('regular',   'Regular',    isFamily: false),
+            chip('bold',      'Bold',       isFamily: false),
+            chip('extrabold', 'Extra Bold', isFamily: false),
+            chip('italic',    'Cursiva',    isFamily: false),
+          ]),
+        ],
+      ),
     );
   }
 
@@ -536,13 +516,14 @@ class _MainScreenState extends State<MainScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Header
+            // ── Header ──────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 8, 0),
               child: Row(
                 children: [
                   Container(
-                    width: 40, height: 40,
+                    width: 40,
+                    height: 40,
                     decoration: BoxDecoration(
                       color: const Color(0xFF1a73e8).withOpacity(0.15),
                       borderRadius: BorderRadius.circular(12),
@@ -570,18 +551,38 @@ class _MainScreenState extends State<MainScreen> {
                     ],
                   ),
                   const Spacer(),
+                  // Settings toggle — icon animates between tune / close
                   IconButton(
-                      onPressed: _openSettings,
-                      icon: const Icon(Icons.tune, color: Colors.white54)),
+                    onPressed: () =>
+                        setState(() => _showSettings = !_showSettings),
+                    icon: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      child: Icon(
+                        _showSettings ? Icons.close : Icons.tune,
+                        key: ValueKey(_showSettings),
+                        color:
+                            _showSettings ? Colors.white70 : Colors.white54,
+                      ),
+                    ),
+                  ),
                   IconButton(
-                      onPressed: _enterPiP,
-                      icon: const Icon(Icons.picture_in_picture_alt,
-                          color: Color(0xFF1a73e8))),
+                    onPressed: _enterPiP,
+                    icon: const Icon(Icons.picture_in_picture_alt,
+                        color: Color(0xFF1a73e8)),
+                  ),
                 ],
               ),
             ),
 
-            // Timer — centrado en el espacio disponible
+            // ── Inline settings (animated expand/collapse) ──
+            AnimatedSize(
+              duration: const Duration(milliseconds: 280),
+              curve: Curves.easeInOut,
+              child:
+                  _showSettings ? _buildSettings() : const SizedBox.shrink(),
+            ),
+
+            // ── Timer + buttons ──────────────────────────────
             Expanded(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -595,18 +596,19 @@ class _MainScreenState extends State<MainScreen> {
                           crossAxisAlignment: CrossAxisAlignment.baseline,
                           textBaseline: TextBaseline.alphabetic,
                           children: [
-                            Text(StopwatchController.formatMain(_sw.elapsed),
+                            Text(
+                                StopwatchController.formatMain(_sw.elapsed),
                                 style: _font(76, _textCol, ls: 1)),
-                            Text(StopwatchController.formatCs(_sw.elapsed),
-                                style:
-                                    _font(26, _textCol.withOpacity(0.45))),
+                            Text(
+                                StopwatchController.formatCs(_sw.elapsed),
+                                style: _font(
+                                    26, _textCol.withOpacity(0.45))),
                           ],
                         );
                       },
                     ),
                   ),
                   const SizedBox(height: 32),
-                  // Buttons
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -633,10 +635,10 @@ class _MainScreenState extends State<MainScreen> {
               ),
             ),
 
-            // Laps
+            // ── Laps ────────────────────────────────────────
             if (_sw.laps.isNotEmpty)
               Container(
-                constraints: const BoxConstraints(maxHeight: 220),
+                constraints: const BoxConstraints(maxHeight: 200),
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
                   children: [
@@ -676,7 +678,7 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  // helper: botón de acción
+  // ── Button helper ────────────────────────────────────────────
   Widget _btn(String label, Color color, VoidCallback? onTap) {
     return GestureDetector(
       onTap: onTap,
@@ -684,8 +686,7 @@ class _MainScreenState extends State<MainScreen> {
         opacity: onTap == null ? 0.35 : 1.0,
         duration: const Duration(milliseconds: 200),
         child: Container(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
           decoration: BoxDecoration(
             color: color.withOpacity(0.15),
             borderRadius: BorderRadius.circular(12),

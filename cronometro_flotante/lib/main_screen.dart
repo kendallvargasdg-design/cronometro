@@ -227,35 +227,16 @@ class _MainScreenState extends State<MainScreen> {
   Widget _buildPiP() {
     return Scaffold(
       backgroundColor: _bgColor.withOpacity(_opacity),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
+      body: SizedBox.expand(
+        child: FittedBox(
+          fit: BoxFit.contain,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Text(
               StopwatchController.format(_sw.elapsed),
-              style: _buildFontStyle(_fontFamily, _fontStyle, 52, _textColor,
-                  letterSpacing: 2),
+              style: _buildFontStyle(_fontFamily, _fontStyle, 64, _textColor),
             ),
-            const SizedBox(height: 6),
-            Text(
-              _sw.isRunning ? '▶  EN CURSO' : '⏸  PAUSADO',
-              style: GoogleFonts.poppins(
-                  color: _textColor.withOpacity(0.6),
-                  fontSize: 11,
-                  letterSpacing: 1.5),
-            ),
-            if (_sw.laps.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                  'LAP ${_sw.laps.length}',
-                  style: GoogleFonts.poppins(
-                      color: const Color(0xFFfbbc04).withOpacity(0.8),
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600),
-                ),
-              ),
-          ],
+          ),
         ),
       ),
     );

@@ -174,7 +174,7 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   // ── Font helper ──────────────────────────────────────────────
-  static TextStyle _buildFontStyle(
+ static TextStyle _buildFontStyle(
       String family, String style, double size, Color color,
       {double? letterSpacing}) {
     final weight = style == 'bold'
@@ -183,23 +183,24 @@ class _MainScreenState extends State<MainScreen> {
             ? FontWeight.w800
             : FontWeight.w400;
     final fStyle = style == 'italic' ? FontStyle.italic : FontStyle.normal;
+    const tabular = [FontFeature.tabularFigures()];
     switch (family) {
       case 'montserrat':
         return GoogleFonts.montserrat(
             fontSize: size, fontWeight: weight, fontStyle: fStyle,
-            color: color, letterSpacing: letterSpacing);
+            color: color, letterSpacing: letterSpacing, fontFeatures: tabular);
       case 'playfair':
         return GoogleFonts.playfairDisplay(
             fontSize: size, fontWeight: weight, fontStyle: fStyle,
-            color: color, letterSpacing: letterSpacing);
+            color: color, letterSpacing: letterSpacing, fontFeatures: tabular);
       case 'cormorant':
         return GoogleFonts.cormorantGaramond(
             fontSize: size, fontWeight: weight, fontStyle: fStyle,
-            color: color, letterSpacing: letterSpacing);
+            color: color, letterSpacing: letterSpacing, fontFeatures: tabular);
       default:
         return GoogleFonts.poppins(
             fontSize: size, fontWeight: weight, fontStyle: fStyle,
-            color: color, letterSpacing: letterSpacing);
+            color: color, letterSpacing: letterSpacing, fontFeatures: tabular);
     }
   }
 

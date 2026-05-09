@@ -331,7 +331,6 @@ class _MainScreenState extends State<MainScreen> {
                     ),
                   ],
                 ),
-            ),
             const SizedBox(height: 14),
 
             // Botón modo flotante

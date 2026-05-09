@@ -39,8 +39,8 @@ jobs:
 
       - name: 📋 Copiar código fuente
         run: |
-          cp -rf mysrc/lib/* cronometro_flotante/lib/
-          cp mysrc/pubspec.yaml cronometro_flotante/pubspec.yaml
+         cp -rf mysrc/cronometro_flotante/lib/* cronometro_flotante/lib/
+          cp mysrc/cronometro_flotante/pubspec.yaml cronometro_flotante/pubspec.yaml
 
       - name: 🔒 Configurar AndroidManifest
         working-directory: cronometro_flotante

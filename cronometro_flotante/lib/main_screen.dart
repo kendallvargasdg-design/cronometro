@@ -300,8 +300,8 @@ class _MainScreenState extends State<MainScreen> {
                         Text(
                           StopwatchController.formatCs(_sw.elapsed),
                           style: _buildFontStyle(
-                              _fontFamily, _fontStyle, 30,
-                              _textColor.withOpacity(0.55)),
+                              _fontFamily, _fontStyle, 20,
+                              _textColor.withOpacity(0.45)),
                         ),
                       ],
                     ),

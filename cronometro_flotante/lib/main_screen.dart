@@ -69,7 +69,11 @@ class _MainScreenState extends State<MainScreen> {
 
   void _startNotifTimer() {
     _notifTimer?.cancel();
-    _notifTimer = Timer.periodic(const Duration(seconds: 1), (_) => _updateNotification());
+    _notifTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      _updateNotification();
+      // Actualizar la pantalla PiP solo 1 vez por segundo
+      if (mounted && _inPiP) setState(() {});
+    });
   }
 
   Future<void> _updateNotification() async {

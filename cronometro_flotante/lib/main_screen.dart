@@ -285,11 +285,28 @@ class _MainScreenState extends State<MainScreen> {
               ),
               child: Column(children: [
                 // Timer — solo este widget se reconstruye cada 33ms
-                AnimatedBuilder(
-                  animation: _sw,
-                  builder: (_, __) => Text(
-                    StopwatchController.format(_sw.elapsed),
-                    style: timeStyle,
+                RepaintBoundary(
+                  child: AnimatedBuilder(
+                    animation: _sw,
+                    builder: (_, __) => Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Text(
+                          StopwatchController.formatMain(_sw.elapsed),
+                          style: _buildFontStyle(
+                              _fontFamily, _fontStyle, 62, _textColor,
+                              letterSpacing: 1),
+                        ),
+                        Text(
+                          StopwatchController.formatCs(_sw.elapsed),
+                          style: _buildFontStyle(
+                              _fontFamily, _fontStyle, 30,
+                              _textColor.withOpacity(0.55)),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 20),

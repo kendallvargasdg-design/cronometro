@@ -29,7 +29,7 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: 📦 Generar estructura Android (boilerplate)
+      - name: 📦 Generar estructura Android
         run: |
           flutter create \
             --project-name cronometro_flotante \
@@ -42,24 +42,196 @@ jobs:
           cp -rf mysrc/lib/* cronometro_flotante/lib/
           cp mysrc/pubspec.yaml cronometro_flotante/pubspec.yaml
 
-      - name: 🔒 Agregar permisos al AndroidManifest
+      - name: 🤖 Crear MainActivity.kt con PiP + RemoteActions
         working-directory: cronometro_flotante
         run: |
-          MANIFEST="android/app/src/main/AndroidManifest.xml"
-          # Insertar permisos después de la línea de INTERNET
-          sed -i 's|<uses-permission android:name="android.permission.INTERNET"/>|<uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>|' "$MANIFEST"
-          echo "--- AndroidManifest actualizado ---"
-          grep -A2 "INTERNET" "$MANIFEST"
+          mkdir -p android/app/src/main/kotlin/com/cronometro/cronometro_flotante
+          cat > android/app/src/main/kotlin/com/cronometro/cronometro_flotante/MainActivity.kt << 'KOTLIN_EOF'
+          package com.cronometro.cronometro_flotante
+
+          import android.app.PictureInPictureParams
+          import android.app.RemoteAction
+          import android.content.BroadcastReceiver
+          import android.content.Context
+          import android.content.Intent
+          import android.content.IntentFilter
+          import android.graphics.drawable.Icon
+          import android.app.PendingIntent
+          import android.os.Build
+          import android.util.Rational
+          import io.flutter.embedding.android.FlutterActivity
+          import io.flutter.embedding.engine.FlutterEngine
+          import io.flutter.plugin.common.MethodChannel
+
+          class MainActivity : FlutterActivity() {
+              private val CHANNEL = "cronometro/pip"
+              private val ACTION_CONTROL = "com.cronometro.ACTION_CONTROL"
+              private var flutterChannel: MethodChannel? = null
+              private var isRunning = false
+
+              // ── BroadcastReceiver: recibe toques de los botones PiP ──
+              private val controlReceiver = object : BroadcastReceiver() {
+                  override fun onReceive(context: Context, intent: Intent) {
+                      val action = intent.getStringExtra("action") ?: return
+                      // Actualizar estado local
+                      when (action) {
+                          "play_pause" -> isRunning = !isRunning
+                          "reset"      -> isRunning = false
+                      }
+                      // Notificar a Flutter
+                      flutterChannel?.invokeMethod("pipAction", action)
+                      // Actualizar los botones PiP con nuevo estado
+                      updatePiPActions()
+                  }
+              }
+
+              // ── Configurar MethodChannel ──────────────────────────────
+              override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+                  super.configureFlutterEngine(flutterEngine)
+                  flutterChannel = MethodChannel(
+                      flutterEngine.dartExecutor.binaryMessenger, CHANNEL
+                  )
+                  flutterChannel?.setMethodCallHandler { call, result ->
+                      when (call.method) {
+                          "enterPiP" -> {
+                              isRunning = call.argument<Boolean>("isRunning") ?: false
+                              enterPiP()
+                              result.success(null)
+                          }
+                          "updatePiP" -> {
+                              isRunning = call.argument<Boolean>("isRunning") ?: isRunning
+                              updatePiPActions()
+                              result.success(null)
+                          }
+                          else -> result.notImplemented()
+                      }
+                  }
+              }
+
+              // ── Registrar receptor de broadcasts ─────────────────────
+              override fun onStart() {
+                  super.onStart()
+                  try {
+                      val filter = IntentFilter(ACTION_CONTROL)
+                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                          registerReceiver(controlReceiver, filter, RECEIVER_NOT_EXPORTED)
+                      } else {
+                          @Suppress("UnspecifiedRegisterReceiverFlag")
+                          registerReceiver(controlReceiver, filter)
+                      }
+                  } catch (e: Exception) { /* ignorar en ROMs restringidas */ }
+              }
+
+              override fun onStop() {
+                  super.onStop()
+                  try { unregisterReceiver(controlReceiver) } catch (e: Exception) { /* ignorar */ }
+              }
+
+              // ── Detectar salida de PiP → notificar a Flutter ─────────
+              override fun onPictureInPictureModeChanged(isInPiP: Boolean) {
+                  super.onPictureInPictureModeChanged(isInPiP)
+                  if (!isInPiP) {
+                      flutterChannel?.invokeMethod("pipExited", null)
+                  }
+              }
+
+              // ── Helpers ───────────────────────────────────────────────
+              private fun makePendingIntent(action: String, requestCode: Int): PendingIntent {
+                  val intent = Intent(ACTION_CONTROL).putExtra("action", action)
+                  val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
+                      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                  else
+                      PendingIntent.FLAG_UPDATE_CURRENT
+                  return PendingIntent.getBroadcast(this, requestCode, intent, flags)
+              }
+
+              private fun buildActions(): List<RemoteAction> {
+                  if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return emptyList()
+                  val playIcon  = if (isRunning) android.R.drawable.ic_media_pause
+                                  else           android.R.drawable.ic_media_play
+                  val playLabel = if (isRunning) "Pausar" else "Iniciar"
+
+                  return listOf(
+                      RemoteAction(
+                          Icon.createWithResource(this, playIcon),
+                          playLabel, playLabel,
+                          makePendingIntent("play_pause", 1)
+                      ),
+                      RemoteAction(
+                          Icon.createWithResource(this, android.R.drawable.ic_menu_revert),
+                          "Reset", "Reset",
+                          makePendingIntent("reset", 2)
+                      ),
+                      RemoteAction(
+                          Icon.createWithResource(this, android.R.drawable.ic_menu_add),
+                          "Lap", "Lap",
+                          makePendingIntent("lap", 3)
+                      )
+                  )
+              }
+
+              private fun enterPiP() {
+                  if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+                  try {
+                      val params = PictureInPictureParams.Builder()
+                          .setAspectRatio(Rational(16, 9))
+                          .setActions(buildActions())
+                          .build()
+                      enterPictureInPictureMode(params)
+                  } catch (e: Exception) { /* MIUI puede bloquear esto */ }
+              }
+
+              private fun updatePiPActions() {
+                  if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+                  if (!isInPictureInPictureMode) return
+                  try {
+                      val params = PictureInPictureParams.Builder()
+                          .setActions(buildActions())
+                          .build()
+                      setPictureInPictureParams(params)
+                  } catch (e: Exception) { /* ignorar */ }
+              }
+          }
+          KOTLIN_EOF
+
+      - name: 🔒 Configurar AndroidManifest (PiP)
+        working-directory: cronometro_flotante
+        run: |
+          python3 - << 'PY_EOF'
+          import re, sys
+
+          path = "android/app/src/main/AndroidManifest.xml"
+          with open(path) as f:
+              content = f.read()
+
+          # Agregar soporte PiP a la activity (solo si no existe ya)
+          if 'supportsPictureInPicture' not in content:
+              content = re.sub(
+                  r'(<activity\b[^>]*?)(/>|>)',
+                  lambda m: (
+                      m.group(1)
+                      + '\n            android:supportsPictureInPicture="true"'
+                      + '\n            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"'
+                      + m.group(2)
+                  ),
+                  content, count=1
+              )
+              print("✅ PiP agregado al AndroidManifest")
+          else:
+              print("ℹ️  PiP ya estaba configurado")
+
+          with open(path, 'w') as f:
+              f.write(content)
+          PY_EOF
 
       - name: ⚙️ Configurar versiones Android SDK
         working-directory: cronometro_flotante
         run: |
           GRADLE="android/app/build.gradle"
-          # flutter_overlay_window requiere minSdk 23 y compileSdk 34
-          sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 23/' "$GRADLE"
+          sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 26/' "$GRADLE"
           sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 34/' "$GRADLE"
           sed -i 's/targetSdkVersion flutter.targetSdkVersion/targetSdkVersion 34/' "$GRADLE"
-          echo "--- build.gradle actualizado ---"
+          echo "--- SDK versions ---"
           grep -E "SdkVersion" "$GRADLE"
 
       - name: 📚 Instalar dependencias Flutter
@@ -73,11 +245,11 @@ jobs:
       - name: 📤 Subir APK como descargable
         uses: actions/upload-artifact@v4
         with:
-          name: cronometro-flotante-v1.0
+          name: cronometro-flotante-v7.0
           path: cronometro_flotante/build/app/outputs/flutter-apk/app-debug.apk
           retention-days: 90
 
       - name: ✅ Build completado
         run: |
           echo "APK listo para descargar!"
-          echo "Ve a: Actions → cronometro-flotante-v1.0 → Download"
+          echo "Ve a: Actions → cronometro-flotante-v7.0 → Download"

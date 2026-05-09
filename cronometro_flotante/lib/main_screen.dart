@@ -685,6 +685,7 @@ class _MainScreenState extends State<MainScreen> {
         duration: const Duration(milliseconds: 200),
         child: Container(
           padding:
+              const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
           decoration: BoxDecoration(
             color: color.withOpacity(0.15),
             borderRadius: BorderRadius.circular(12),

@@ -28,7 +28,6 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _sw = StopwatchController();
     _sw.addListener(() { if (mounted) setState(() {}); });
     _loadPrefs();

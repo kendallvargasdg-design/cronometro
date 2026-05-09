@@ -233,9 +233,7 @@ class _MainScreenState extends State<MainScreen> {
 
   // ── Vista completa ───────────────────────────────────────────
   Widget _buildFull() {
-    final timeStyle = _buildFontStyle(
-        _fontFamily, _fontStyle, 56, _textColor, letterSpacing: 1);
-
+   
     return Scaffold(
       backgroundColor: const Color(0xFF0d0d1a),
       body: SafeArea(

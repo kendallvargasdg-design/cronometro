@@ -64,11 +64,10 @@ jobs:
               content
           )
 
-          # PiP en la actividad
+          # Solo agregar supportsPictureInPicture (configChanges ya existe en el manifest de Flutter)
           content = re.sub(
               r'(<activity\b)',
-              r'\1 android:supportsPictureInPicture="true"'
-              r' android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"',
+              r'\1 android:supportsPictureInPicture="true"',
               content,
               count=1
           )
@@ -87,7 +86,6 @@ jobs:
 
           print("AndroidManifest OK")
           EOF
-
       - name: ⚙️ Configurar versiones Android SDK
         working-directory: cronometro_flotante
         run: |

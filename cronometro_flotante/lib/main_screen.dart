@@ -32,13 +32,17 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     _sw = StopwatchController();
     _sw.addListener(() { if (mounted) setState(() {}); });
     _loadPrefs();
-    _channel.setMethodCallHandler((call) async {
+   _channel.setMethodCallHandler((call) async {
       if (call.method == 'pipAction') {
         final action = call.arguments as String;
         if (action == 'play')  { _sw.isRunning ? _sw.pause() : _sw.start(); }
         if (action == 'reset') { _sw.reset(); }
         if (action == 'lap')   { _sw.lap(); }
         if (mounted) setState(() {});
+      } else if (call.method == 'pipExited') {
+        // Android confirma que salimos del modo flotante
+        if (mounted) setState(() => _inPiP = false);
+        _dismissNotification();
       }
     });
   }

@@ -29,6 +29,16 @@ class StopwatchController extends ChangeNotifier {
 
   Duration get currentLap => elapsed - _lapStart;
 
+  void start() {
+    if (!_isRunning) startPause();
+  }
+
+  void pause() {
+    if (_isRunning) startPause();
+  }
+
+  void lap() => addLap();
+
   void startPause() {
     if (_isRunning) {
       _elapsed += DateTime.now().difference(_startTime!);

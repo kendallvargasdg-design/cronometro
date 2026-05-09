@@ -29,7 +29,6 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     _sw = StopwatchController();
-    // setState solo cuando cambia el estado real (vueltas / play-pause)
     _sw.addListener(_onSwChange);
     _loadPrefs();
     _channel.setMethodCallHandler((call) async {
@@ -84,8 +83,10 @@ class _MainScreenState extends State<MainScreen> {
   Future<void> _enterPiP() async {
     try {
       await _channel.invokeMethod('enterPiP', {'isRunning': _sw.isRunning});
+      await Future.delayed(const Duration(milliseconds: 600));
       if (mounted) setState(() => _inPiP = true);
     } catch (_) {
+      await Future.delayed(const Duration(milliseconds: 600));
       if (mounted) setState(() => _inPiP = true);
     }
   }
@@ -96,7 +97,6 @@ class _MainScreenState extends State<MainScreen> {
     catch (_) {}
   }
 
-  // ── Font ─────────────────────────────────────────────────────
   static TextStyle _buildFontStyle(String family, String style,
       double size, Color color, {double? letterSpacing}) {
     final w = style == 'bold' ? FontWeight.w700
@@ -123,14 +123,13 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  // ── Color pickers ────────────────────────────────────────────
   void _pickBgColor() {
     Color tmp = _bgColor;
     showDialog(context: context, builder: (_) => AlertDialog(
       backgroundColor: const Color(0xFF1e1e2e),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: Text('Color de fondo',
-          style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w600)),
+      title: Text('Color de fondo', style: GoogleFonts.poppins(
+          color: Colors.white, fontWeight: FontWeight.w600)),
       content: SingleChildScrollView(child: BlockPicker(
         pickerColor: _bgColor, onColorChanged: (c) => tmp = c,
         availableColors: const [
@@ -158,8 +157,8 @@ class _MainScreenState extends State<MainScreen> {
     showDialog(context: context, builder: (_) => AlertDialog(
       backgroundColor: const Color(0xFF1e1e2e),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: Text('Color de texto',
-          style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w600)),
+      title: Text('Color de texto', style: GoogleFonts.poppins(
+          color: Colors.white, fontWeight: FontWeight.w600)),
       content: SingleChildScrollView(child: ColorPicker(
         pickerColor: _textColor, onColorChanged: (c) => tmp = c,
         enableAlpha: false, labelTypes: const [], pickerAreaHeightPercent: 0.7,
@@ -177,52 +176,47 @@ class _MainScreenState extends State<MainScreen> {
     ));
   }
 
-  // ── Build ────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) =>
       _inPiP ? _buildPiP() : _buildFull();
 
-  // ── Vista PiP ────────────────────────────────────────────────
   Widget _buildPiP() {
     return SizedBox.expand(
       child: Container(
-        decoration: BoxDecoration(
-          color: _bgColor.withOpacity(_opacity),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        color: _bgColor.withOpacity(_opacity),
         child: AnimatedBuilder(
           animation: _sw,
           builder: (_, __) {
             final running = _sw.isRunning;
-            return Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+            return Stack(
               children: [
-                Expanded(
+                Center(
                   child: FittedBox(
                     fit: BoxFit.contain,
-                    child: Text(
-                      StopwatchController.format(_sw.elapsed),
-                      style: _buildFontStyle(
-                          _fontFamily, _fontStyle, 48, _textColor),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 6, 12, 22),
+                      child: Text(
+                        StopwatchController.format(_sw.elapsed),
+                        style: _buildFontStyle(
+                            _fontFamily, _fontStyle, 48, _textColor),
+                      ),
                     ),
                   ),
                 ),
-                Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Container(width: 5, height: 5,
-                      decoration: BoxDecoration(
-                          color: running
-                              ? const Color(0xFF1a73e8) : Colors.white30,
-                          shape: BoxShape.circle)),
-                  const SizedBox(width: 5),
-                  Text(running ? 'EN CURSO' : 'PAUSADO',
-                      style: GoogleFonts.poppins(
-                          color: running
-                              ? const Color(0xFF1a73e8) : Colors.white30,
-                          fontSize: 8, letterSpacing: 1.2,
-                          fontWeight: FontWeight.w700)),
-                ]),
-                const SizedBox(height: 2),
+                Positioned(
+                  bottom: 6, left: 0, right: 0,
+                  child: Text(
+                    running ? '▶  EN CURSO' : '⏸  PAUSADO',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.poppins(
+                      color: running
+                          ? const Color(0xFF1a73e8) : Colors.white38,
+                      fontSize: 9,
+                      letterSpacing: 1.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
               ],
             );
           },
@@ -231,14 +225,11 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  // ── Vista completa ───────────────────────────────────────────
   Widget _buildFull() {
-   
     return Scaffold(
       backgroundColor: const Color(0xFF0d0d1a),
       body: SafeArea(
         child: Column(children: [
-          // Header
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
             child: Row(children: [
@@ -246,138 +237,147 @@ class _MainScreenState extends State<MainScreen> {
                 decoration: BoxDecoration(
                   color: const Color(0xFF1a73e8).withOpacity(0.15),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF1a73e8).withOpacity(0.3)),
+                  border: Border.all(
+                      color: const Color(0xFF1a73e8).withOpacity(0.3)),
                 ),
-                child: const Icon(Icons.timer, color: Color(0xFF1a73e8), size: 24)),
+                child: const Icon(Icons.timer,
+                    color: Color(0xFF1a73e8), size: 24)),
               const SizedBox(width: 12),
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('Cronómetro', style: GoogleFonts.poppins(
-                    fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white)),
+                    fontSize: 20, fontWeight: FontWeight.w800,
+                    color: Colors.white)),
                 Text('Flotante', style: GoogleFonts.poppins(
                     fontSize: 20, fontWeight: FontWeight.w800,
                     color: const Color(0xFF1a73e8), height: 0.9)),
               ]),
               const Spacer(),
               IconButton(
-                icon: Icon(_showSettings ? Icons.close : Icons.settings_outlined,
+                icon: Icon(
+                    _showSettings ? Icons.close : Icons.settings_outlined,
                     color: Colors.white54),
-                onPressed: () => setState(() => _showSettings = !_showSettings),
+                onPressed: () =>
+                    setState(() => _showSettings = !_showSettings),
               ),
             ]),
           ),
-
-          // Contenido
-          Expanded(child: SingleChildScrollView(child: Column(children: [
-            const SizedBox(height: 8),
-
-            // Tarjeta del cronómetro
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 20),
-              padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
-              decoration: BoxDecoration(
-                color: _bgColor.withOpacity(_opacity),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.white.withOpacity(0.08)),
-                boxShadow: [BoxShadow(
-                    color: Colors.black.withOpacity(0.4), blurRadius: 24)],
-              ),
+          Expanded(
+            child: SingleChildScrollView(
               child: Column(children: [
-                // Timer — solo este widget se reconstruye cada 33ms
-                RepaintBoundary(
-                  child: AnimatedBuilder(
-                    animation: _sw,
-                    builder: (_, __) => Row(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
-                      children: [
-                        Text(
-                          StopwatchController.formatMain(_sw.elapsed),
-                          style: _buildFontStyle(
-                              _fontFamily, _fontStyle, 62, _textColor,
-                              letterSpacing: 1),
+                const SizedBox(height: 8),
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 20),
+                  padding: const EdgeInsets.symmetric(
+                      vertical: 28, horizontal: 20),
+                  decoration: BoxDecoration(
+                    color: _bgColor.withOpacity(_opacity),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                        color: Colors.white.withOpacity(0.08)),
+                    boxShadow: [BoxShadow(
+                        color: Colors.black.withOpacity(0.4),
+                        blurRadius: 24)],
+                  ),
+                  child: Column(children: [
+                    RepaintBoundary(
+                      child: AnimatedBuilder(
+                        animation: _sw,
+                        builder: (_, __) => Row(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            Text(
+                              StopwatchController.formatMain(_sw.elapsed),
+                              style: _buildFontStyle(
+                                  _fontFamily, _fontStyle, 62, _textColor,
+                                  letterSpacing: 1),
+                            ),
+                            Text(
+                              StopwatchController.formatCs(_sw.elapsed),
+                              style: _buildFontStyle(
+                                  _fontFamily, _fontStyle, 20,
+                                  _textColor.withOpacity(0.45)),
+                            ),
+                          ],
                         ),
-                        Text(
-                          StopwatchController.formatCs(_sw.elapsed),
-                          style: _buildFontStyle(
-                              _fontFamily, _fontStyle, 20,
-                              _textColor.withOpacity(0.45)),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _ActionBtn(
+                          label: _sw.isRunning ? '⏸  PAUSAR' : '▶  INICIAR',
+                          color: const Color(0xFF1a73e8),
+                          onTap: () {
+                            _sw.isRunning ? _sw.pause() : _sw.start();
+                          },
+                        ),
+                        const SizedBox(width: 10),
+                        _ActionBtn(
+                          label: 'LAP',
+                          color: const Color(0xFFfbbc04),
+                          onTap: _sw.isRunning
+                              ? () { _sw.lap(); } : null,
+                        ),
+                        const SizedBox(width: 10),
+                        _ActionBtn(
+                          label: '↺  RESET',
+                          color: const Color(0xFFea4335),
+                          onTap: () { _sw.reset(); },
                         ),
                       ],
                     ),
+                  ]),
+                ),
+                const SizedBox(height: 14),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: SizedBox(
+                    width: double.infinity, height: 52,
+                    child: ElevatedButton.icon(
+                      icon: const Icon(
+                          Icons.picture_in_picture_alt, size: 18),
+                      label: Text('Modo flotante',
+                          style: GoogleFonts.poppins(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF6200ea),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14)),
+                      ),
+                      onPressed: _enterPiP,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 20),
-                // Botones — AnimatedBuilder para el label INICIAR/PAUSAR
-               Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _ActionBtn(
-                      label: _sw.isRunning ? '⏸  PAUSAR' : '▶  INICIAR',
-                      color: const Color(0xFF1a73e8),
-                      onTap: () { _sw.isRunning ? _sw.pause() : _sw.start(); },
-                    ),
-                    const SizedBox(width: 10),
-                    _ActionBtn(
-                      label: 'LAP',
-                      color: const Color(0xFFfbbc04),
-                      onTap: _sw.isRunning ? () { _sw.lap(); } : null,
-                    ),
-                    const SizedBox(width: 10),
-                    _ActionBtn(
-                      label: '↺  RESET',
-                      color: const Color(0xFFea4335),
-                      onTap: () { _sw.reset(); },
-                    ),
-                  ],
-                ),
-            const SizedBox(height: 14),
-
-            // Botón modo flotante
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: SizedBox(width: double.infinity, height: 52,
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.picture_in_picture_alt, size: 18),
-                  label: Text('Modo flotante', style: GoogleFonts.poppins(
-                      fontSize: 15, fontWeight: FontWeight.w700)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF6200ea),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
+                const SizedBox(height: 16),
+                if (_showSettings) _buildSettings(),
+                if (_sw.laps.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(children: [
+                      Text('VUELTAS', style: GoogleFonts.poppins(
+                          color: Colors.white38, fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.5)),
+                    ]),
                   ),
-                  onPressed: _enterPiP,
-                ),
-              ),
+                  const SizedBox(height: 8),
+                  ..._sw.laps.reversed.map((l) => _LapTile(lap: l)),
+                ],
+                const SizedBox(height: 24),
+              ]),
             ),
-            const SizedBox(height: 16),
-
-            // Ajustes
-            if (_showSettings) _buildSettings(),
-
-            // Vueltas
-            if (_sw.laps.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(children: [
-                  Text('VUELTAS', style: GoogleFonts.poppins(
-                      color: Colors.white38, fontSize: 10,
-                      fontWeight: FontWeight.w700, letterSpacing: 1.5)),
-                ]),
-              ),
-              const SizedBox(height: 8),
-              ..._sw.laps.reversed.map((l) => _LapTile(lap: l)),
-            ],
-            const SizedBox(height: 24),
-          ]))),
+          ),
         ]),
       ),
     );
   }
 
-  // ── Panel ajustes ─────────────────────────────────────────────
   Widget _buildSettings() => Container(
     margin: const EdgeInsets.symmetric(horizontal: 20),
     padding: const EdgeInsets.all(18),
@@ -389,27 +389,36 @@ class _MainScreenState extends State<MainScreen> {
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       _sLabel('APARIENCIA'),
       const SizedBox(height: 14),
-      _SettingRow(icon: Icons.palette_outlined, label: 'Color de fondo',
+      _SettingRow(
+        icon: Icons.palette_outlined, label: 'Color de fondo',
         trailing: GestureDetector(onTap: _pickBgColor,
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Container(width: 22, height: 22, decoration: BoxDecoration(
-                color: _bgColor, shape: BoxShape.circle,
-                border: Border.all(color: Colors.white30))),
+            Container(width: 22, height: 22,
+                decoration: BoxDecoration(color: _bgColor,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white30))),
             const SizedBox(width: 6),
             Text('Cambiar', style: GoogleFonts.poppins(
                 color: const Color(0xFF1a73e8), fontSize: 12)),
-          ]))),
+          ])),
+      ),
       const SizedBox(height: 10),
-      _SettingRow(icon: Icons.opacity, label: 'Transparencia',
+      _SettingRow(
+        icon: Icons.opacity, label: 'Transparencia',
         trailing: SizedBox(width: 120, child: Slider(
           value: _opacity, min: 0.3, max: 1.0, divisions: 7,
-          activeColor: const Color(0xFF1a73e8), inactiveColor: Colors.white12,
-          onChanged: (v) { setState(() => _opacity = v); _savePrefs(); },
-        ))),
+          activeColor: const Color(0xFF1a73e8),
+          inactiveColor: Colors.white12,
+          onChanged: (v) {
+            setState(() => _opacity = v); _savePrefs();
+          },
+        )),
+      ),
       const SizedBox(height: 16),
       _sLabel('TIPOGRAFÍA'),
       const SizedBox(height: 12),
-      Text('Familia', style: GoogleFonts.poppins(color: Colors.white54, fontSize: 12)),
+      Text('Familia', style: GoogleFonts.poppins(
+          color: Colors.white54, fontSize: 12)),
       const SizedBox(height: 8),
       Wrap(spacing: 8, runSpacing: 8, children: [
         _familyChip('poppins',    'Poppins'),
@@ -418,7 +427,8 @@ class _MainScreenState extends State<MainScreen> {
         _familyChip('cormorant',  'Cormorant'),
       ]),
       const SizedBox(height: 14),
-      Text('Estilo', style: GoogleFonts.poppins(color: Colors.white54, fontSize: 12)),
+      Text('Estilo', style: GoogleFonts.poppins(
+          color: Colors.white54, fontSize: 12)),
       const SizedBox(height: 8),
       Wrap(spacing: 8, runSpacing: 8, children: [
         _styleChip('regular',   'Regular'),
@@ -427,16 +437,19 @@ class _MainScreenState extends State<MainScreen> {
         _styleChip('extrabold', 'Extra Bold'),
       ]),
       const SizedBox(height: 14),
-      _SettingRow(icon: Icons.format_color_text, label: 'Color de texto',
+      _SettingRow(
+        icon: Icons.format_color_text, label: 'Color de texto',
         trailing: GestureDetector(onTap: _pickTextColor,
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Container(width: 22, height: 22, decoration: BoxDecoration(
-                color: _textColor, shape: BoxShape.circle,
-                border: Border.all(color: Colors.white30))),
+            Container(width: 22, height: 22,
+                decoration: BoxDecoration(color: _textColor,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white30))),
             const SizedBox(width: 6),
             Text('Cambiar', style: GoogleFonts.poppins(
                 color: const Color(0xFF1a73e8), fontSize: 12)),
-          ]))),
+          ])),
+      ),
     ]),
   );
 
@@ -449,10 +462,14 @@ class _MainScreenState extends State<MainScreen> {
     final c = sel ? const Color(0xFF1a73e8) : Colors.white60;
     TextStyle ts;
     switch (key) {
-      case 'montserrat': ts = GoogleFonts.montserrat(fontSize: 13, color: c, fontWeight: FontWeight.w600); break;
-      case 'playfair':   ts = GoogleFonts.playfairDisplay(fontSize: 13, color: c, fontWeight: FontWeight.w600); break;
-      case 'cormorant':  ts = GoogleFonts.cormorantGaramond(fontSize: 14, color: c, fontWeight: FontWeight.w600); break;
-      default:           ts = GoogleFonts.poppins(fontSize: 13, color: c, fontWeight: FontWeight.w600);
+      case 'montserrat':
+        ts = GoogleFonts.montserrat(fontSize: 13, color: c, fontWeight: FontWeight.w600); break;
+      case 'playfair':
+        ts = GoogleFonts.playfairDisplay(fontSize: 13, color: c, fontWeight: FontWeight.w600); break;
+      case 'cormorant':
+        ts = GoogleFonts.cormorantGaramond(fontSize: 14, color: c, fontWeight: FontWeight.w600); break;
+      default:
+        ts = GoogleFonts.poppins(fontSize: 13, color: c, fontWeight: FontWeight.w600);
     }
     return GestureDetector(
       onTap: () { setState(() => _fontFamily = key); _savePrefs(); },
@@ -475,8 +492,6 @@ class _MainScreenState extends State<MainScreen> {
   }
 }
 
-// ── Widgets ───────────────────────────────────────────────────────────────────
-
 class _ActionBtn extends StatelessWidget {
   final String label;
   final Color color;
@@ -492,7 +507,8 @@ class _ActionBtn extends StatelessWidget {
             ? color.withOpacity(0.15) : Colors.white.withOpacity(0.04),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-            color: onTap != null ? color.withOpacity(0.5) : Colors.white12),
+            color: onTap != null
+                ? color.withOpacity(0.5) : Colors.white12),
       ),
       child: Text(label, style: GoogleFonts.poppins(
           color: onTap != null ? color : Colors.white24,
@@ -537,7 +553,8 @@ class _SettingRow extends StatelessWidget {
   Widget build(BuildContext context) => Row(children: [
     Icon(icon, color: Colors.white38, size: 18),
     const SizedBox(width: 10),
-    Text(label, style: GoogleFonts.poppins(color: Colors.white70, fontSize: 13)),
+    Text(label, style: GoogleFonts.poppins(
+        color: Colors.white70, fontSize: 13)),
     const Spacer(),
     trailing,
   ]);

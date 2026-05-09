@@ -321,8 +321,120 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  // ── Abrir ajustes como bottom sheet ──────────────────────────
+  void _openSettings() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setSheet) => Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFF13132a),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
+          child: SingleChildScrollView(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              // Handle bar
+              Center(
+                child: Container(
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(2)),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // ── APARIENCIA ───────────────────────────────────
+              Text('APARIENCIA',
+                  style: GoogleFonts.poppins(
+                      color: Colors.white38, fontSize: 10,
+                      fontWeight: FontWeight.w700, letterSpacing: 1.5)),
+              const SizedBox(height: 12),
+
+              _SettingRow(
+                label: 'Fondo',
+                child: GestureDetector(
+                  onTap: () { Navigator.pop(context); _pickBgColor(); },
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Container(width: 22, height: 22,
+                        decoration: BoxDecoration(color: _bgColor,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white30))),
+                    const SizedBox(width: 6),
+                    Text('Cambiar', style: GoogleFonts.poppins(
+                        color: const Color(0xFF1a73e8), fontSize: 12)),
+                  ]),
+                ),
+              ),
+
+              _SettingRow(
+                label: 'Opacidad',
+                child: SizedBox(
+                  width: 130,
+                  child: Slider(
+                    value: _opacity, min: 0.3, max: 1.0, divisions: 7,
+                    activeColor: const Color(0xFF1a73e8),
+                    inactiveColor: Colors.white12,
+                    onChanged: (v) {
+                      setSheet(() {});
+                      setState(() => _opacity = v);
+                      _savePrefs();
+                    },
+                  ),
+                ),
+              ),
+
+              _SettingRow(
+                label: 'Color texto',
+                child: GestureDetector(
+                  onTap: () { Navigator.pop(context); _pickTextColor(); },
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Container(width: 22, height: 22,
+                        decoration: BoxDecoration(color: _textColor,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white30))),
+                    const SizedBox(width: 6),
+                    Text('Cambiar', style: GoogleFonts.poppins(
+                        color: const Color(0xFF1a73e8), fontSize: 12)),
+                  ]),
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // ── TIPOGRAFÍA ───────────────────────────────────
+              Text('TIPOGRAFÍA',
+                  style: GoogleFonts.poppins(
+                      color: Colors.white38, fontSize: 10,
+                      fontWeight: FontWeight.w700, letterSpacing: 1.5)),
+              const SizedBox(height: 12),
+
+              Wrap(spacing: 8, runSpacing: 8, children: [
+                _buildFamilyChip('poppins',    'Poppins',    setSheet),
+                _buildFamilyChip('montserrat', 'Montserrat', setSheet),
+                _buildFamilyChip('playfair',   'Playfair',   setSheet),
+                _buildFamilyChip('cormorant',  'Cormorant',  setSheet),
+              ]),
+              const SizedBox(height: 10),
+              Wrap(spacing: 8, runSpacing: 8, children: [
+                _buildStyleChip('regular',   'Regular',    setSheet),
+                _buildStyleChip('bold',      'Bold',       setSheet),
+                _buildStyleChip('extrabold', 'Extra Bold', setSheet),
+                _buildStyleChip('italic',    'Cursiva',    setSheet),
+              ]),
+              const SizedBox(height: 8),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+
   // ═══════════════════════════════════════════════════════════════
-  // MAIN SCREEN
+  // MAIN SCREEN — timer siempre centrado, ajustes en bottom sheet
   // ═══════════════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
@@ -331,221 +443,135 @@ class _MainScreenState extends State<MainScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF0d0d1a),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 20),
+        child: Column(
+          children: [
 
-              // ── Header ──────────────────────────────────────
-              Row(children: [
+            // ── Header (fijo arriba) ─────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 12, 0),
+              child: Row(children: [
                 Container(
-                  width: 44, height: 44,
+                  width: 40, height: 40,
                   decoration: BoxDecoration(
                     color: const Color(0xFF1a73e8).withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(13),
+                    borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                         color: const Color(0xFF1a73e8).withOpacity(0.3)),
                   ),
                   child: const Icon(Icons.timer,
-                      color: Color(0xFF1a73e8), size: 24),
+                      color: Color(0xFF1a73e8), size: 22),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text('Cronómetro',
                       style: GoogleFonts.poppins(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
+                          fontSize: 18, fontWeight: FontWeight.w800,
                           color: Colors.white)),
                   Text('Flotante',
                       style: GoogleFonts.poppins(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
-                          color: const Color(0xFF1a73e8),
-                          height: 0.9)),
+                          fontSize: 18, fontWeight: FontWeight.w800,
+                          color: const Color(0xFF1a73e8), height: 0.85)),
                 ]),
                 const Spacer(),
+                // Ajustes → bottom sheet
                 IconButton(
-                  onPressed: () =>
-                      setState(() => _showSettings = !_showSettings),
-                  icon: Icon(
-                      _showSettings ? Icons.close : Icons.tune,
-                      color: Colors.white54),
+                  onPressed: _openSettings,
+                  icon: const Icon(Icons.tune, color: Colors.white54),
                 ),
+                // Entrar a PiP
                 IconButton(
                   onPressed: _enterPiP,
                   icon: const Icon(Icons.picture_in_picture_alt,
                       color: Color(0xFF1a73e8)),
-                  tooltip: 'Modo flotante',
                 ),
               ]),
-              const SizedBox(height: 24),
+            ),
 
-              // ── Settings panel (collapsible) ─────────────────
-              if (_showSettings) ...[
-                _buildSettingsPanel(),
-                const SizedBox(height: 20),
-              ],
-
-              // ── Timer display ────────────────────────────────
-              Center(
-                child: RepaintBoundary(
-                  child: AnimatedBuilder(
-                    animation: _sw,
-                    builder: (_, __) => Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
-                      children: [
-                        Text(
-                          StopwatchController.formatMain(_sw.elapsed),
-                          style: _buildFontStyle(
-                              _fontFamily, _fontStyle, 72, _textColor,
-                              letterSpacing: 1),
-                        ),
-                        Text(
-                          StopwatchController.formatCs(_sw.elapsed),
-                          style: _buildFontStyle(
-                              _fontFamily, _fontStyle, 24,
-                              _textColor.withOpacity(0.45)),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // ── Buttons ──────────────────────────────────────
-              Row(
+            // ── Timer (ocupa el espacio central disponible) ──
+            Expanded(
+              child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _ActionBtn(
-                    label: _sw.isRunning ? '⏸  PAUSAR' : '▶  INICIAR',
-                    color: const Color(0xFF1a73e8),
-                    onTap: () => _sw.startPause(),
+
+                  // Tiempo
+                  RepaintBoundary(
+                    child: AnimatedBuilder(
+                      animation: _sw,
+                      builder: (_, __) => Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text(
+                            StopwatchController.formatMain(_sw.elapsed),
+                            style: _buildFontStyle(
+                                _fontFamily, _fontStyle, 76, _textColor,
+                                letterSpacing: 1),
+                          ),
+                          Text(
+                            StopwatchController.formatCs(_sw.elapsed),
+                            style: _buildFontStyle(
+                                _fontFamily, _fontStyle, 26,
+                                _textColor.withOpacity(0.45)),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  const SizedBox(width: 10),
-                  _ActionBtn(
-                    label: 'LAP',
-                    color: const Color(0xFFfbbc04),
-                    onTap: _sw.isRunning ? () => _sw.addLap() : null,
-                  ),
-                  const SizedBox(width: 10),
-                  _ActionBtn(
-                    label: '↺  RESET',
-                    color: const Color(0xFFea4335),
-                    onTap: () => _sw.reset(),
+                  const SizedBox(height: 32),
+
+                  // Botones
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _ActionBtn(
+                        label: _sw.isRunning ? '⏸  PAUSAR' : '▶  INICIAR',
+                        color: const Color(0xFF1a73e8),
+                        onTap: () => _sw.startPause(),
+                      ),
+                      const SizedBox(width: 10),
+                      _ActionBtn(
+                        label: 'LAP',
+                        color: const Color(0xFFfbbc04),
+                        onTap: _sw.isRunning ? () => _sw.addLap() : null,
+                      ),
+                      const SizedBox(width: 10),
+                      _ActionBtn(
+                        label: '↺  RESET',
+                        color: const Color(0xFFea4335),
+                        onTap: () => _sw.reset(),
+                      ),
+                    ],
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
+            ),
 
-              // ── Lap list ─────────────────────────────────────
-              if (_sw.laps.isNotEmpty) ...[
-                const Divider(color: Colors.white12),
-                const SizedBox(height: 4),
-                ..._sw.laps.map((lap) => _LapRow(lap: lap, textColor: _textColor)),
-              ],
-              const SizedBox(height: 24),
-            ],
-          ),
+            // ── Lista de laps (parte inferior, scrollable) ───
+            if (_sw.laps.isNotEmpty)
+              Container(
+                constraints: const BoxConstraints(maxHeight: 220),
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                  children: [
+                    const Divider(color: Colors.white12),
+                    ..._sw.laps.map(
+                        (lap) => _LapRow(lap: lap, textColor: _textColor)),
+                  ],
+                ),
+              ),
+
+          ],
         ),
       ),
     );
   }
 
   // ── Settings panel ────────────────────────────────────────────
-  Widget _buildSettingsPanel() {
-    return Column(children: [
-      _Card(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('APARIENCIA',
-            style: GoogleFonts.poppins(
-                color: Colors.white38,
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.5)),
-        const SizedBox(height: 12),
-        _SettingRow(
-          label: 'Fondo',
-          child: GestureDetector(
-            onTap: _pickBgColor,
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Container(
-                  width: 22, height: 22,
-                  decoration: BoxDecoration(
-                      color: _bgColor,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white30))),
-              const SizedBox(width: 6),
-              Text('Cambiar',
-                  style: GoogleFonts.poppins(
-                      color: const Color(0xFF1a73e8), fontSize: 12)),
-            ]),
-          ),
-        ),
-        _SettingRow(
-          label: 'Opacidad',
-          child: SizedBox(
-            width: 120,
-            child: Slider(
-              value: _opacity, min: 0.3, max: 1.0, divisions: 7,
-              activeColor: const Color(0xFF1a73e8),
-              inactiveColor: Colors.white12,
-              onChanged: (v) {
-                setState(() => _opacity = v);
-                _savePrefs();
-              },
-            ),
-          ),
-        ),
-        _SettingRow(
-          label: 'Texto',
-          child: GestureDetector(
-            onTap: _pickTextColor,
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Container(
-                  width: 22, height: 22,
-                  decoration: BoxDecoration(
-                      color: _textColor,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white30))),
-              const SizedBox(width: 6),
-              Text('Cambiar',
-                  style: GoogleFonts.poppins(
-                      color: const Color(0xFF1a73e8), fontSize: 12)),
-            ]),
-          ),
-        ),
-      ])),
-      const SizedBox(height: 8),
-      _Card(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('TIPOGRAFÍA',
-            style: GoogleFonts.poppins(
-                color: Colors.white38,
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.5)),
-        const SizedBox(height: 10),
-        Wrap(spacing: 8, runSpacing: 8, children: [
-          _buildFamilyChip('poppins',    'Poppins'),
-          _buildFamilyChip('montserrat', 'Montserrat'),
-          _buildFamilyChip('playfair',   'Playfair'),
-          _buildFamilyChip('cormorant',  'Cormorant'),
-        ]),
-        const SizedBox(height: 10),
-        Wrap(spacing: 8, runSpacing: 8, children: [
-          _buildStyleChip('regular',   'Regular'),
-          _buildStyleChip('bold',      'Bold'),
-          _buildStyleChip('extrabold', 'Extra Bold'),
-          _buildStyleChip('italic',    'Cursiva'),
-        ]),
-      ])),
-    ]);
-  }
+  Widget _buildSettingsPanel() => const SizedBox.shrink();
 
-  Widget _buildFamilyChip(String key, String label) {
+  Widget _buildFamilyChip(String key, String label,
+      [StateSetter? setSheet]) {
     final sel = _fontFamily == key;
     final c   = sel ? const Color(0xFF1a73e8) : Colors.white60;
     TextStyle ts;
@@ -560,12 +586,17 @@ class _MainScreenState extends State<MainScreen> {
         ts = GoogleFonts.poppins(fontSize: 12, color: c, fontWeight: FontWeight.w600);
     }
     return GestureDetector(
-      onTap: () { setState(() => _fontFamily = key); _savePrefs(); },
+      onTap: () {
+        setState(() => _fontFamily = key);
+        setSheet?.call(() {});
+        _savePrefs();
+      },
       child: _Chip(selected: sel, child: Text(label, style: ts)),
     );
   }
 
-  Widget _buildStyleChip(String key, String label) {
+  Widget _buildStyleChip(String key, String label,
+      [StateSetter? setSheet]) {
     final sel = _fontStyle == key;
     final w   = key == 'bold'
         ? FontWeight.w700
@@ -574,7 +605,11 @@ class _MainScreenState extends State<MainScreen> {
             : FontWeight.w400;
     final fi  = key == 'italic' ? FontStyle.italic : FontStyle.normal;
     return GestureDetector(
-      onTap: () { setState(() => _fontStyle = key); _savePrefs(); },
+      onTap: () {
+        setState(() => _fontStyle = key);
+        setSheet?.call(() {});
+        _savePrefs();
+      },
       child: _Chip(
         selected: sel,
         child: Text(label,
@@ -638,58 +673,4 @@ class _LapRow extends StatelessWidget {
       const SizedBox(width: 16),
       Text(StopwatchController.format(lap.cumulative),
           style: GoogleFonts.poppins(
-              color: textColor, fontSize: 13, fontWeight: FontWeight.w600)),
-    ]),
-  );
-}
-
-class _Card extends StatelessWidget {
-  final Widget child;
-  const _Card({required this.child});
-  @override
-  Widget build(BuildContext context) => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: Colors.white.withOpacity(0.05),
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: Colors.white.withOpacity(0.06)),
-    ),
-    child: child,
-  );
-}
-
-class _Chip extends StatelessWidget {
-  final bool selected;
-  final Widget child;
-  const _Chip({required this.selected, required this.child});
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-    decoration: BoxDecoration(
-      color: selected
-          ? const Color(0xFF1a73e8).withOpacity(0.18)
-          : Colors.white.withOpacity(0.06),
-      borderRadius: BorderRadius.circular(8),
-      border: Border.all(
-          color: selected ? const Color(0xFF1a73e8) : Colors.white12),
-    ),
-    child: child,
-  );
-}
-
-class _SettingRow extends StatelessWidget {
-  final String label;
-  final Widget child;
-  const _SettingRow({required this.label, required this.child});
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 6),
-    child: Row(children: [
-      Text(label,
-          style: GoogleFonts.poppins(color: Colors.white70, fontSize: 13)),
-      const Spacer(),
-      child,
-    ]),
-  );
-}
+              color: textColor, fontSize: 13, f

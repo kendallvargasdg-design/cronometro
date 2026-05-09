@@ -199,6 +199,7 @@ jobs:
           import android.content.Context
           import android.content.Intent
           import android.content.IntentFilter
+          import android.content.res.Configuration
           import android.os.Build
           import android.util.Rational
           import io.flutter.embedding.android.FlutterActivity
@@ -240,7 +241,9 @@ jobs:
                               result.success(null)
                           }
                           "dismissNotification" -> {
-                              stopService(Intent(this, CronometroService::class.java))
+                              try {
+                                  stopService(Intent(this, CronometroService::class.java))
+                              } catch (e: Exception) {}
                               result.success(null)
                           }
                           else -> result.notImplemented()
@@ -257,29 +260,49 @@ jobs:
                   }
               }
 
+              // Este callback es MÁS CONFIABLE que el ciclo de vida de Flutter en MIUI
+              override fun onPictureInPictureModeChanged(
+                  isInPictureInPictureMode: Boolean,
+                  newConfig: Configuration
+              ) {
+                  super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+                  if (!isInPictureInPictureMode) {
+                      // El usuario salió del modo flotante — avisar a Flutter
+                      methodChannel?.invokeMethod("pipExited", null)
+                  }
+              }
+
               override fun onDestroy() {
                   super.onDestroy()
                   try { unregisterReceiver(pipReceiver) } catch (_: Exception) {}
               }
 
               private fun startCronometroService(time: String, isRunning: Boolean) {
-                  val intent = Intent(this, CronometroService::class.java).apply {
-                      putExtra(CronometroService.EXTRA_TIME, time)
-                      putExtra(CronometroService.EXTRA_IS_RUNNING, isRunning)
-                  }
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                      startForegroundService(intent)
-                  } else {
-                      startService(intent)
+                  try {
+                      val intent = Intent(this, CronometroService::class.java).apply {
+                          putExtra(CronometroService.EXTRA_TIME, time)
+                          putExtra(CronometroService.EXTRA_IS_RUNNING, isRunning)
+                      }
+                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                          startForegroundService(intent)
+                      } else {
+                          startService(intent)
+                      }
+                  } catch (e: Exception) {
+                      // MIUI puede bloquear el servicio — continuar sin crash
                   }
               }
 
               private fun enterPiPMode() {
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                      val params = PictureInPictureParams.Builder()
-                          .setAspectRatio(Rational(16, 9))
-                          .build()
-                      enterPictureInPictureMode(params)
+                  try {
+                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                          val params = PictureInPictureParams.Builder()
+                              .setAspectRatio(Rational(16, 9))
+                              .build()
+                          enterPictureInPictureMode(params)
+                      }
+                  } catch (e: Exception) {
+                      // PiP no disponible en este dispositivo
                   }
               }
           }

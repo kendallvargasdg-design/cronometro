@@ -685,5 +685,18 @@ class _MainScreenState extends State<MainScreen> {
         duration: const Duration(milliseconds: 200),
         child: Container(
           padding:
-              const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-          decorat
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color.withOpacity(0.5)),
+          ),
+          child: Text(label,
+              style: GoogleFonts.poppins(
+                  color: color,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700)),
+        ),
+      ),
+    );
+  }
+}

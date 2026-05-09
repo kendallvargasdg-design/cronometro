@@ -229,13 +229,13 @@ class _MainScreenState extends State<MainScreen> {
 
   // ── Vista PiP (solo lectura, sin botones táctiles) ───────────
   Widget _buildPiP() {
-    return Scaffold(
-      backgroundColor: _bgColor.withOpacity(_opacity),
-      body: SizedBox.expand(
+    return Container(
+      color: _bgColor.withOpacity(_opacity),
+      child: Center(
         child: FittedBox(
           fit: BoxFit.contain,
           child: Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(8),
             child: Text(
               StopwatchController.format(_sw.elapsed),
               style: _buildFontStyle(_fontFamily, _fontStyle, 64, _textColor),

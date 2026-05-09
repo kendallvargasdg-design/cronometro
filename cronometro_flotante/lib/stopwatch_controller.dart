@@ -47,7 +47,7 @@ class StopwatchController extends ChangeNotifier {
     } else {
       _isRunning = true;
       _startTime = DateTime.now();
-      _timer = Timer.periodic(const Duration(milliseconds: 33), (_) {
+      _timer = Timer.periodic(const Duration(milliseconds: 16), (_) {
         notifyListeners();
       });
     }

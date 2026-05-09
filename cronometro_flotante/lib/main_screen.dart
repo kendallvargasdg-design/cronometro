@@ -309,32 +309,28 @@ class _MainScreenState extends State<MainScreen> {
                 ),
                 const SizedBox(height: 20),
                 // Botones — AnimatedBuilder para el label INICIAR/PAUSAR
-                AnimatedBuilder(
-                  animation: _sw,
-                  builder: (_, __) => Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _ActionBtn(
-                        label: _sw.isRunning ? '⏸  PAUSAR' : '▶  INICIAR',
-                        color: const Color(0xFF1a73e8),
-                        onTap: () { _sw.isRunning ? _sw.pause() : _sw.start(); },
-                      ),
-                      const SizedBox(width: 10),
-                      _ActionBtn(
-                        label: 'LAP',
-                        color: const Color(0xFFfbbc04),
-                        onTap: _sw.isRunning ? () { _sw.lap(); } : null,
-                      ),
-                      const SizedBox(width: 10),
-                      _ActionBtn(
-                        label: '↺  RESET',
-                        color: const Color(0xFFea4335),
-                        onTap: () { _sw.reset(); },
-                      ),
-                    ],
-                  ),
+               Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _ActionBtn(
+                      label: _sw.isRunning ? '⏸  PAUSAR' : '▶  INICIAR',
+                      color: const Color(0xFF1a73e8),
+                      onTap: () { _sw.isRunning ? _sw.pause() : _sw.start(); },
+                    ),
+                    const SizedBox(width: 10),
+                    _ActionBtn(
+                      label: 'LAP',
+                      color: const Color(0xFFfbbc04),
+                      onTap: _sw.isRunning ? () { _sw.lap(); } : null,
+                    ),
+                    const SizedBox(width: 10),
+                    _ActionBtn(
+                      label: '↺  RESET',
+                      color: const Color(0xFFea4335),
+                      onTap: () { _sw.reset(); },
+                    ),
+                  ],
                 ),
-              ]),
             ),
             const SizedBox(height: 14),
 

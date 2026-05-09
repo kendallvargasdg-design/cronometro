@@ -23,30 +23,36 @@ class _MainScreenState extends State<MainScreen> {
   Color _textColor = Colors.white;
   bool _showSettings = false;
   bool _inPiP = false;
-  Timer? _notifTimer;
 
   @override
   void initState() {
     super.initState();
     _sw = StopwatchController();
-    _sw.addListener(() { if (mounted && !_inPiP) setState(() {}); });
+    _sw.addListener(() {
+      if (mounted && !_inPiP) setState(() {});
+    });
     _loadPrefs();
-   _channel.setMethodCallHandler((call) async {
+    _channel.setMethodCallHandler((call) async {
       if (call.method == 'pipAction') {
         final action = call.arguments as String;
         if (action == 'play')  { _sw.isRunning ? _sw.pause() : _sw.start(); }
         if (action == 'reset') { _sw.reset(); }
         if (action == 'lap')   { _sw.lap(); }
+        _updatePiP();
         if (mounted) setState(() {});
       } else if (call.method == 'pipExited') {
-        // Android confirma que salimos del modo flotante
         if (mounted) setState(() => _inPiP = false);
-        _dismissNotification();
       }
     });
   }
 
-   Future<void> _loadPrefs() async {
+  @override
+  void dispose() {
+    _sw.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadPrefs() async {
     final p = await SharedPreferences.getInstance();
     if (!mounted) return;
     setState(() {
@@ -67,45 +73,24 @@ class _MainScreenState extends State<MainScreen> {
     await p.setInt('text_color',     _textColor.value);
   }
 
-  void _startNotifTimer() {
-    _notifTimer?.cancel();
-    _notifTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      _updateNotification();
-      // Actualizar la pantalla PiP solo 1 vez por segundo
-      if (mounted && _inPiP) setState(() {});
-    });
-  }
-
-  Future<void> _updateNotification() async {
-    try {
-      await _channel.invokeMethod('updateNotification', {
-        'time': StopwatchController.format(_sw.elapsed),
-        'isRunning': _sw.isRunning,
-      });
-    } catch (_) {}
-  }
-
-  Future<void> _dismissNotification() async {
-    _notifTimer?.cancel();
-    _notifTimer = null;
-    try { await _channel.invokeMethod('dismissNotification'); } catch (_) {}
-  }
-
   Future<void> _enterPiP() async {
     try {
       await _channel.invokeMethod('enterPiP', {
-        'time': StopwatchController.format(_sw.elapsed),
         'isRunning': _sw.isRunning,
       });
       if (mounted) setState(() => _inPiP = true);
-      _startNotifTimer();
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error PiP: $e'), backgroundColor: Colors.red),
-        );
-      }
+      if (mounted) setState(() => _inPiP = true);
     }
+  }
+
+  Future<void> _updatePiP() async {
+    if (!_inPiP) return;
+    try {
+      await _channel.invokeMethod('updatePiP', {
+        'isRunning': _sw.isRunning,
+      });
+    } catch (_) {}
   }
 
   // ── Colores ───────────────────────────────────────────────────
@@ -218,16 +203,12 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  // ── Build ────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    // Usa SOLO la bandera _inPiP — nunca MediaQuery.width
-    // para evitar vibración durante la animación de entrada al PiP.
     if (_inPiP) return _buildPiP();
     return _buildFull();
   }
 
-  // ── Vista PiP (solo lectura, sin botones táctiles) ───────────
   Widget _buildPiP() {
     return Container(
       color: _bgColor.withOpacity(_opacity),
@@ -246,7 +227,6 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  // ── Vista completa ───────────────────────────────────────────
   Widget _buildFull() {
     final timeStr = StopwatchController.format(_sw.elapsed);
     final timeStyle = _buildFontStyle(_fontFamily, _fontStyle, 58, _textColor,
@@ -257,7 +237,6 @@ class _MainScreenState extends State<MainScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // ── Header ──────────────────────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
               child: Row(children: [
@@ -281,7 +260,6 @@ class _MainScreenState extends State<MainScreen> {
                           color: const Color(0xFF1a73e8), height: 0.9)),
                 ]),
                 const Spacer(),
-                // Botón ajustes
                 IconButton(
                   icon: Icon(
                     _showSettings ? Icons.close : Icons.settings_outlined,
@@ -291,14 +269,10 @@ class _MainScreenState extends State<MainScreen> {
                 ),
               ]),
             ),
-
-            // ── Cronómetro principal ────────────────────────
             Expanded(
               child: SingleChildScrollView(
                 child: Column(children: [
                   const SizedBox(height: 16),
-
-                  // Pantalla del tiempo
                   Container(
                     margin: const EdgeInsets.symmetric(horizontal: 20),
                     padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
@@ -312,8 +286,6 @@ class _MainScreenState extends State<MainScreen> {
                     child: Column(children: [
                       Text(timeStr, style: timeStyle),
                       const SizedBox(height: 20),
-
-                      // Botones: INICIAR / LAP / RESET
                       Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                         _ActionBtn(
                           label: _sw.isRunning ? '⏸  PAUSAR' : '▶  INICIAR',
@@ -327,7 +299,9 @@ class _MainScreenState extends State<MainScreen> {
                         _ActionBtn(
                           label: 'LAP',
                           color: const Color(0xFFfbbc04),
-                          onTap: _sw.isRunning ? () { _sw.lap(); setState(() {}); } : null,
+                          onTap: _sw.isRunning
+                              ? () { _sw.lap(); setState(() {}); }
+                              : null,
                         ),
                         const SizedBox(width: 10),
                         _ActionBtn(
@@ -339,8 +313,6 @@ class _MainScreenState extends State<MainScreen> {
                     ]),
                   ),
                   const SizedBox(height: 14),
-
-                  // Botón modo flotante
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: SizedBox(
@@ -361,11 +333,7 @@ class _MainScreenState extends State<MainScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-
-                  // ── Panel de ajustes (colapsable) ───────────
                   if (_showSettings) _buildSettingsPanel(),
-
-                  // ── Vueltas ─────────────────────────────────
                   if (_sw.laps.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Padding(
@@ -405,8 +373,6 @@ class _MainScreenState extends State<MainScreen> {
                 color: Colors.white38, fontSize: 10,
                 fontWeight: FontWeight.w700, letterSpacing: 1.5)),
         const SizedBox(height: 14),
-
-        // Color de fondo
         _SettingRow(
           icon: Icons.palette_outlined,
           label: 'Color de fondo',
@@ -426,8 +392,6 @@ class _MainScreenState extends State<MainScreen> {
           ),
         ),
         const SizedBox(height: 10),
-
-        // Transparencia
         _SettingRow(
           icon: Icons.opacity,
           label: 'Transparencia',
@@ -442,14 +406,11 @@ class _MainScreenState extends State<MainScreen> {
           ),
         ),
         const SizedBox(height: 16),
-
         Text('TIPOGRAFÍA',
             style: GoogleFonts.poppins(
                 color: Colors.white38, fontSize: 10,
                 fontWeight: FontWeight.w700, letterSpacing: 1.5)),
         const SizedBox(height: 12),
-
-        // Familia de fuente
         Text('Familia', style: GoogleFonts.poppins(color: Colors.white54, fontSize: 12)),
         const SizedBox(height: 8),
         Wrap(spacing: 8, runSpacing: 8, children: [
@@ -459,8 +420,6 @@ class _MainScreenState extends State<MainScreen> {
           _buildFamilyChip('cormorant',  'Cormorant'),
         ]),
         const SizedBox(height: 14),
-
-        // Estilo
         Text('Estilo', style: GoogleFonts.poppins(color: Colors.white54, fontSize: 12)),
         const SizedBox(height: 8),
         Wrap(spacing: 8, runSpacing: 8, children: [
@@ -470,8 +429,6 @@ class _MainScreenState extends State<MainScreen> {
           _buildStyleChip('extrabold', 'Extra Bold'),
         ]),
         const SizedBox(height: 14),
-
-        // Color de texto
         _SettingRow(
           icon: Icons.format_color_text,
           label: 'Color de texto',
@@ -494,7 +451,6 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  // ── Chips ─────────────────────────────────────────────────────
   Widget _buildFamilyChip(String key, String label) {
     final sel = _fontFamily == key;
     final c = sel ? const Color(0xFF1a73e8) : Colors.white60;
@@ -529,7 +485,7 @@ class _MainScreenState extends State<MainScreen> {
   }
 }
 
-// ── Widgets reutilizables ─────────────────────────────────────────────────────
+// ── Widgets ───────────────────────────────────────────────────────────────────
 
 class _ActionBtn extends StatelessWidget {
   final String label;
@@ -580,8 +536,7 @@ class _LapTile extends StatelessWidget {
           style: GoogleFonts.poppins(color: Colors.white70, fontSize: 12)),
       const SizedBox(width: 16),
       Text(StopwatchController.format(lap.cumulative),
-          style: GoogleFonts.poppins(
-              color: Colors.white38, fontSize: 11)),
+          style: GoogleFonts.poppins(color: Colors.white38, fontSize: 11)),
     ]),
   );
 }

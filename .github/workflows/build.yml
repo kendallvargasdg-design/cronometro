@@ -131,11 +131,15 @@ jobs:
                   val time = intent?.getStringExtra(EXTRA_TIME) ?: "00:00.00"
                   val isRunning = intent?.getBooleanExtra(EXTRA_IS_RUNNING, false) ?: false
                   val notification = buildNotification(time, isRunning)
-                  if (Build.VERSION.SDK_INT >= 34) {
-                      startForeground(NOTIF_ID, notification,
-                          android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
-                  } else {
-                      startForeground(NOTIF_ID, notification)
+                  try {
+                      if (Build.VERSION.SDK_INT >= 34) {
+                          startForeground(NOTIF_ID, notification,
+                              android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+                      } else {
+                          startForeground(NOTIF_ID, notification)
+                      }
+                  } catch (e: Exception) {
+                      // MIUI puede bloquear el servicio — continuar sin crash
                   }
                   return START_NOT_STICKY
               }
@@ -174,8 +178,7 @@ jobs:
               private fun createNotificationChannel() {
                   if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                       val ch = NotificationChannel(
-                          NOTIF_CHANNEL_ID,
-                          "Cronómetro",
+                          NOTIF_CHANNEL_ID, "Cronómetro",
                           NotificationManager.IMPORTANCE_LOW
                       ).apply { description = "Control del cronómetro flotante" }
                       (getSystemService(NOTIFICATION_SERVICE) as NotificationManager)

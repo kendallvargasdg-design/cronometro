@@ -29,7 +29,7 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     _sw = StopwatchController();
-    _sw.addListener(() { if (mounted) setState(() {}); });
+    _sw.addListener(() { if (mounted && !_inPiP) setState(() {}); });
     _loadPrefs();
    _channel.setMethodCallHandler((call) async {
       if (call.method == 'pipAction') {

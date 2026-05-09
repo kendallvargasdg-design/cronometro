@@ -211,18 +211,46 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Widget _buildPiP() {
-    return Container(
-      color: _bgColor.withOpacity(_opacity),
-      child: Center(
-        child: FittedBox(
-          fit: BoxFit.contain,
-          child: Padding(
-            padding: const EdgeInsets.all(8),
-            child: Text(
-              StopwatchController.format(_sw.elapsed),
-              style: _buildFontStyle(_fontFamily, _fontStyle, 64, _textColor),
+    final running = _sw.isRunning;
+    return SizedBox.expand(
+      child: Container(
+        color: _bgColor.withOpacity(_opacity),
+        padding: const EdgeInsets.fromLTRB(8, 6, 8, 4),
+        child: Column(
+          children: [
+            Expanded(
+              child: FittedBox(
+                fit: BoxFit.contain,
+                child: Text(
+                  StopwatchController.format(_sw.elapsed),
+                  style: _buildFontStyle(_fontFamily, _fontStyle, 48, _textColor),
+                ),
+              ),
             ),
-          ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 5, height: 5,
+                  decoration: BoxDecoration(
+                    color: running ? const Color(0xFF1a73e8) : Colors.white30,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  running ? 'EN CURSO' : 'PAUSADO',
+                  style: GoogleFonts.poppins(
+                    color: running ? const Color(0xFF1a73e8) : Colors.white30,
+                    fontSize: 7,
+                    letterSpacing: 1.2,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 2),
+          ],
         ),
       ),
     );

@@ -39,8 +39,10 @@ jobs:
 
       - name: 📋 Copiar código fuente
         run: |
-          cp -rf mysrc/lib/* cronometro_flotante/lib/
-          cp mysrc/pubspec.yaml cronometro_flotante/pubspec.yaml
+          cp mysrc/lib/main.dart               cronometro_flotante/lib/main.dart
+          cp mysrc/lib/main_screen.dart        cronometro_flotante/lib/main_screen.dart
+          cp mysrc/lib/stopwatch_controller.dart cronometro_flotante/lib/stopwatch_controller.dart
+          cp mysrc/pubspec.yaml                cronometro_flotante/pubspec.yaml
 
       - name: 🤖 Crear MainActivity.kt con PiP + RemoteActions
         working-directory: cronometro_flotante
@@ -245,11 +247,5 @@ jobs:
       - name: 📤 Subir APK como descargable
         uses: actions/upload-artifact@v4
         with:
-          name: cronometro-flotante-v7.0
-          path: cronometro_flotante/build/app/outputs/flutter-apk/app-debug.apk
-          retention-days: 90
-
-      - name: ✅ Build completado
-        run: |
-          echo "APK listo para descargar!"
-          echo "Ve a: Actions → cronometro-flotante-v7.0 → Download"
+          name: cronometro-flotante-v8.0
+          path: cronometro_flotante/build/app/o
